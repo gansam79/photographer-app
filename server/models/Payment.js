@@ -1,21 +1,21 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const paymentSchema = new mongoose.Schema(
   {
     invoiceId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Invoice",
-      required: true,
+      ref: 'Invoice',
+      required: [true, 'Invoice is required'],
     },
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Client",
-      required: true,
+      ref: 'Client',
+      required: [true, 'Client is required'],
     },
     amount: {
       type: Number,
-      required: true,
-      min: 0,
+      required: [true, 'Amount is required'],
+      min: [0, 'Amount cannot be negative'],
     },
     paymentDate: {
       type: Date,
@@ -23,8 +23,8 @@ const paymentSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Bank Transfer", "UPI", "Credit Card", "Cheque", "Other"],
-      required: true,
+      enum: ['Cash', 'Bank Transfer', 'UPI', 'Credit Card', 'Cheque', 'Other'],
+      required: [true, 'Payment method is required'],
     },
     transactionId: {
       type: String,
@@ -39,7 +39,12 @@ const paymentSchema = new mongoose.Schema(
       default: true,
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-export default mongoose.model("Payment", paymentSchema);
+// Index for faster queries
+paymentSchema.index({ invoiceId: 1 });
+paymentSchema.index({ clientId: 1 });
+paymentSchema.index({ paymentDate: 1 });
+
+export default mongoose.model('Payment', paymentSchema);

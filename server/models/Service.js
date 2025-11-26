@@ -1,11 +1,12 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const serviceSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: true,
+      required: [true, 'Service name is required'],
       trim: true,
+      minlength: [2, 'Name must be at least 2 characters'],
     },
     description: {
       type: String,
@@ -13,25 +14,28 @@ const serviceSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["photography", "video", "drone", "product", "other"],
-      default: "photography",
+      enum: ['photography', 'video', 'drone', 'product', 'other'],
+      default: 'photography',
     },
     ratePerDay: {
       type: Number,
-      required: true,
-      min: 0,
+      required: [true, 'Rate per day is required'],
+      min: [0, 'Rate cannot be negative'],
     },
     ratePerUnit: {
       type: Number,
       default: 0,
-      min: 0,
+      min: [0, 'Rate cannot be negative'],
     },
     isActive: {
       type: Boolean,
       default: true,
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-export default mongoose.model("Service", serviceSchema);
+// Index for active services
+serviceSchema.index({ isActive: 1 });
+
+export default mongoose.model('Service', serviceSchema);

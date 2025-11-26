@@ -1,21 +1,21 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const quotationSchema = new mongoose.Schema(
   {
     quotationNumber: {
       type: String,
       unique: true,
-      required: true,
+      required: [true, 'Quotation number is required'],
     },
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Client",
-      required: true,
+      ref: 'Client',
+      required: [true, 'Client is required'],
     },
     eventType: {
       type: String,
-      enum: ["Wedding", "Pre-wedding", "Other"],
-      required: true,
+      enum: ['Wedding', 'Pre-wedding', 'Other'],
+      required: [true, 'Event type is required'],
     },
     quotationDate: {
       type: Date,
@@ -23,76 +23,76 @@ const quotationSchema = new mongoose.Schema(
     },
     eventDate: {
       type: Date,
-      required: true,
+      required: [true, 'Event date is required'],
     },
     validityDate: {
       type: Date,
-      required: true,
+      required: [true, 'Validity date is required'],
     },
     services: [
       {
         serviceId: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "Service",
+          ref: 'Service',
           required: true,
         },
         serviceName: String,
         quantity: {
           type: Number,
           default: 1,
-          min: 1,
+          min: [1, 'Quantity must be at least 1'],
         },
         days: {
           type: Number,
           default: 1,
-          min: 1,
+          min: [1, 'Days must be at least 1'],
         },
         ratePerDay: {
           type: Number,
           required: true,
-          min: 0,
+          min: [0, 'Rate cannot be negative'],
         },
         total: {
           type: Number,
           required: true,
-          min: 0,
+          min: [0, 'Total cannot be negative'],
         },
       },
     ],
     subtotal: {
       type: Number,
       required: true,
-      min: 0,
+      min: [0, 'Subtotal cannot be negative'],
     },
     discount: {
       type: Number,
       default: 0,
-      min: 0,
+      min: [0, 'Discount cannot be negative'],
     },
     discountType: {
       type: String,
-      enum: ["fixed", "percentage"],
-      default: "fixed",
+      enum: ['fixed', 'percentage'],
+      default: 'fixed',
     },
     taxPercentage: {
       type: Number,
       default: 0,
-      min: 0,
-      max: 100,
+      min: [0, 'Tax cannot be negative'],
+      max: [100, 'Tax cannot exceed 100%'],
     },
     tax: {
       type: Number,
       default: 0,
-      min: 0,
+      min: [0, 'Tax cannot be negative'],
     },
     grandTotal: {
       type: Number,
       required: true,
-      min: 0,
+      min: [0, 'Grand total cannot be negative'],
     },
     paymentTerms: {
       type: String,
-      default: "50% advance, 50% on event date",
+      default: '50% advance, 50% on event date',
     },
     notes: {
       type: String,
@@ -105,8 +105,8 @@ const quotationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Draft", "Sent", "Accepted", "Rejected"],
-      default: "Draft",
+      enum: ['Draft', 'Sent', 'Accepted', 'Rejected'],
+      default: 'Draft',
     },
     convertedToInvoice: {
       type: Boolean,
@@ -114,11 +114,16 @@ const quotationSchema = new mongoose.Schema(
     },
     invoiceId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Invoice",
+      ref: 'Invoice',
       default: null,
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-export default mongoose.model("Quotation", quotationSchema);
+// Index for faster queries
+quotationSchema.index({ clientId: 1 });
+quotationSchema.index({ status: 1 });
+quotationSchema.index({ eventDate: 1 });
+
+export default mongoose.model('Quotation', quotationSchema);
