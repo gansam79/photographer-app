@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import Navigation from "@/components/Navigation";
 import QuotationForm from "@/components/QuotationForm";
 import { generateQuotationPDF } from "@/utils/pdfGenerator";
 import { toast } from "sonner";
@@ -141,10 +140,8 @@ export default function Quotations() {
   };
 
   return (
-    <div className="min-h-screen bg-gold-50 dark:bg-charcoal-900">
-      <Navigation />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -327,7 +324,7 @@ export default function Quotations() {
             ))}
           </div>
         )}
-      </main>
+      </div>
 
       {showForm && (
         <QuotationForm
@@ -336,6 +333,6 @@ export default function Quotations() {
           onCancel={() => setShowForm(false)}
         />
       )}
-    </div>
+    </>
   );
 }

@@ -15,8 +15,13 @@ const connectDB = async () => {
     console.log(`📊 Database: ${dbName}`);
     return true;
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error.message);
-    process.exit(1);
+    console.error('❌ MongoDB connection error:', error && error.message ? error.message : error);
+    // Don't exit the process in development — allow the server to continue running
+    // Set EXIT_ON_DB_FAIL=true to restore previous behavior where the process exits.
+    if (process.env.EXIT_ON_DB_FAIL === 'true') {
+      process.exit(1);
+    }
+    return false;
   }
 };
 

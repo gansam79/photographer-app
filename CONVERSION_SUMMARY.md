@@ -171,7 +171,7 @@ npm install
 
 **Server (.env):**
 ```
-MONGODB_URI=mongodb+srv://your_user:your_pass@cluster0.xxx.mongodb.net/
+MONGODB_URI=mongodb+srv://photograper:photograper@cluster0.sy94kcl.mongodb.net/?appName=Cluster0/
 DATABASE_NAME=photography-local
 PORT=5000
 CORS_ORIGIN=http://localhost:3000

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import path from "path";
 import cors from "cors";
 import { connectDB, getDbStatus } from "./db.js";
 import { handleDemo } from "./routes/demo.js";
@@ -47,6 +48,19 @@ export function createServer() {
   app.use("/api/services", serviceRoutes);
   app.use("/api/quotations", quotationRoutes);
   app.use("/api/invoices", invoiceRoutes);
+
+  // Serve SPA for non-API GET requests (so BrowserRouter clean URLs work in dev)
+  app.get("*", (req, res, next) => {
+    try {
+      if (req.method !== "GET") return next();
+      const p = req.path || "/";
+      if (p.startsWith("/api") || p.startsWith("/dist") || p.includes(".")) return next();
+      // Serve project's index.html (Vite dev server serves index from workspace root)
+      res.sendFile(path.resolve(process.cwd(), "index.html"));
+    } catch (e) {
+      next(e);
+    }
+  });
 
   return app;
 }

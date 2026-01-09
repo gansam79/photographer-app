@@ -1,11 +1,30 @@
 import mongoose from "mongoose";
 
-const MONGO_URI =
-  process.env.MONGODB_URI ||
-  "mongodb+srv://dhekaneakanksha68_db_user:AS5VMg97LlA2ljXD@photography-local.rh1jrxj.mongodb.net/?appName=photography-local";
+const DEFAULT_HOST = "cluster0.ds2nlug.mongodb.net";
+const DEFAULT_APP_NAME = "Cluster0";
+
+const buildMongoUri = () => {
+  if (process.env.MONGODB_URI) return process.env.MONGODB_URI;
+
+  const username = process.env.MONGODB_USERNAME;
+  const password = process.env.MONGODB_PASSWORD;
+  const host = process.env.MONGODB_HOST || DEFAULT_HOST;
+  if (!username || !password) return null;
+
+  const encodedUser = encodeURIComponent(username);
+  const encodedPass = encodeURIComponent(password);
+  return `mongodb+srv://${encodedUser}:${encodedPass}@${host}/?retryWrites=true&w=majority&appName=${process.env.MONGODB_APP_NAME || DEFAULT_APP_NAME}`;
+};
 
 export const connectDB = async () => {
   try {
+    const mongoUri = buildMongoUri();
+    if (!mongoUri) {
+      throw new Error(
+        "MongoDB connection settings are missing. Provide MONGODB_URI or MONGODB_USERNAME/MONGODB_PASSWORD in your environment."
+      );
+    }
+
     // Optional debug logging controlled by env
     if (process.env.MONGO_DEBUG === "true") {
       mongoose.set("debug", true);
@@ -28,8 +47,8 @@ export const connectDB = async () => {
       console.log("🔁 Mongoose reconnected");
     });
 
-    await mongoose.connect(MONGO_URI, {
-      dbName: process.env.DATABASE_NAME || "photography-local",
+    await mongoose.connect(mongoUri, {
+      dbName: process.env.DATABASE_NAME || "photography",
       retryWrites: true,
       w: "majority",
     });
@@ -37,8 +56,13 @@ export const connectDB = async () => {
     console.log("✅ MongoDB connected successfully");
     return mongoose.connection;
   } catch (error) {
-    console.error("❌ MongoDB connection error:", error.message);
-    process.exit(1);
+    console.error("❌ MongoDB connection error:", error && error.message ? error.message : error);
+    // In development we don't want the whole dev server to exit if the DB is unreachable.
+    // Set EXIT_ON_DB_FAIL=true in the environment to preserve the original behavior.
+    if (process.env.EXIT_ON_DB_FAIL === "true") {
+      process.exit(1);
+    }
+    return null;
   }
 };
 

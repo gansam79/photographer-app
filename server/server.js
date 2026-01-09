@@ -58,8 +58,12 @@ const startServer = async () => {
       console.log(`🔗 CORS enabled for: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
+    console.error('❌ Failed to start server:', error && (error.message || error));
+    // In development we prefer the process to remain up so Vite/Dev server stays available.
+    // If you want to fail fast in CI/production, set EXIT_ON_DB_FAIL=true
+    if (process.env.EXIT_ON_DB_FAIL === 'true') {
+      process.exit(1);
+    }
   }
 };
 
