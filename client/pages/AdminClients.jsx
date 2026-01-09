@@ -1,10 +1,326 @@
-import React from 'react';
+import React, { useMemo, useState } from "react";
+
+const seedClients = [
+  {
+    id: "1",
+    name: "Rahul & Sneha",
+    email: "rahul.sneha@example.com",
+    whatsapp: "9876512345",
+    event: "Wedding",
+    city: "Pune",
+    budget: 95000,
+    status: "Active",
+    createdAt: "2025-10-12",
+  },
+  {
+    id: "2",
+    name: "Ishaan Patil",
+    email: "ishaan@studio.com",
+    whatsapp: "9988776655",
+    event: "Pre-Wedding",
+    city: "Kolhapur",
+    budget: 45000,
+    status: "Lead",
+    createdAt: "2025-10-05",
+  },
+  {
+    id: "3",
+    name: "Aditi & Neel",
+    email: "aditi.neel@example.com",
+    whatsapp: "9765432100",
+    event: "Engagement",
+    city: "Mumbai",
+    budget: 62000,
+    status: "Archived",
+    createdAt: "2025-08-21",
+  },
+];
+
+const emptyClient = {
+  id: null,
+  name: "",
+  email: "",
+  whatsapp: "",
+  event: "Wedding",
+  city: "",
+  budget: "",
+  status: "Lead",
+};
+
+const statusMap = {
+  Lead: "bg-amber-100 text-amber-700",
+  Active: "bg-emerald-100 text-emerald-700",
+  Archived: "bg-slate-200 text-slate-600",
+};
 
 export default function AdminClients() {
+  const [clients, setClients] = useState(seedClients);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState(emptyClient);
+  const [deleteId, setDeleteId] = useState(null);
+
+  const stats = useMemo(() => {
+    const total = clients.length;
+    const active = clients.filter((c) => c.status === "Active").length;
+    const leads = clients.filter((c) => c.status === "Lead").length;
+    const archived = clients.filter((c) => c.status === "Archived").length;
+    const pipeline = clients.reduce((sum, c) => sum + (Number(c.budget) || 0), 0);
+    return { total, active, leads, archived, pipeline };
+  }, [clients]);
+
+  const openModal = (client = null) => {
+    setForm(client || emptyClient);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setForm(emptyClient);
+  };
+
+  const saveClient = () => {
+    if (!form.name.trim() || !form.whatsapp.trim()) return;
+    if (form.id) {
+      setClients((prev) => prev.map((c) => (c.id === form.id ? { ...c, ...form } : c)));
+    } else {
+      setClients((prev) => [
+        {
+          ...form,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString().slice(0, 10),
+        },
+        ...prev,
+      ]);
+    }
+    closeModal();
+  };
+
+  const confirmDelete = () => {
+    setClients((prev) => prev.filter((c) => c.id !== deleteId));
+    setDeleteId(null);
+  };
+
   return (
-    <div>
-      <h2 className="text-2xl font-bold">Admin Clients</h2>
-      <p className="mt-4">Placeholder admin clients page.</p>
+    <section className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Clients</p>
+          <h1 className="text-3xl font-semibold text-charcoal-900 dark:text-white">Client Registry</h1>
+          <p className="text-sm text-charcoal-500 dark:text-charcoal-300">
+            Track couples, monitor budgets, and assign the next touchpoint.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gold-600"
+          onClick={() => openModal()}
+        >
+          <span className="text-lg">+</span>
+          Add Client
+        </button>
+      </header>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Stat label="Total" value={stats.total} accent="from-amber-100 to-white" />
+        <Stat label="Active" value={stats.active} accent="from-emerald-100 to-white" />
+        <Stat label="Leads" value={stats.leads} accent="from-blue-100 to-white" />
+        <Stat label="Pipeline" value={`₹${stats.pipeline.toLocaleString()}`} accent="from-rose-50 to-white" />
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 className="text-lg font-semibold text-charcoal-900">Client List</h2>
+          <p className="text-xs text-slate-500">{stats.archived} archived</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold">Name</th>
+                <th className="px-4 py-3 text-left font-semibold">WhatsApp</th>
+                <th className="px-4 py-3 text-left font-semibold">Email</th>
+                <th className="px-4 py-3 text-left font-semibold">Event</th>
+                <th className="px-4 py-3 text-left font-semibold">City</th>
+                <th className="px-4 py-3 text-left font-semibold">Budget</th>
+                <th className="px-4 py-3 text-left font-semibold">Status</th>
+                <th className="px-4 py-3 text-left font-semibold">Created</th>
+                <th className="px-4 py-3 text-right font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
+                    No clients yet. Start by adding your first booking.
+                  </td>
+                </tr>
+              ) : (
+                clients.map((client) => (
+                  <tr key={client.id} className="odd:bg-white even:bg-slate-50">
+                    <td className="px-4 py-3 font-semibold text-charcoal-900">{client.name}</td>
+                    <td className="px-4 py-3 text-slate-600">{client.whatsapp}</td>
+                    <td className="px-4 py-3 text-slate-600">{client.email}</td>
+                    <td className="px-4 py-3">{client.event}</td>
+                    <td className="px-4 py-3">{client.city}</td>
+                    <td className="px-4 py-3 font-medium text-charcoal-900">
+                      {client.budget ? `₹${Number(client.budget).toLocaleString()}` : "--"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusMap[client.status] || "bg-slate-200 text-slate-600"}`}>
+                        {client.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">{client.createdAt || "--"}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex gap-2">
+                        <button
+                          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                          onClick={() => openModal(client)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="rounded-md border border-rose-100 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                          onClick={() => setDeleteId(client.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {modalOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Client</p>
+                <h2 className="text-2xl font-semibold text-charcoal-900">
+                  {form.id ? "Edit Client" : "Add New Client"}
+                </h2>
+              </div>
+              <button className="text-slate-400 hover:text-slate-600" onClick={closeModal}>
+                ✕
+              </button>
+            </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <Field label="Full Name" required>
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                />
+              </Field>
+              <Field label="WhatsApp" required>
+                <input
+                  value={form.whatsapp}
+                  maxLength={10}
+                  onChange={(e) => setForm((prev) => ({ ...prev, whatsapp: e.target.value.replace(/[^0-9]/g, "") }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                />
+              </Field>
+              <Field label="Email">
+                <input
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                />
+              </Field>
+              <Field label="Event Type">
+                <select
+                  value={form.event}
+                  onChange={(e) => setForm((prev) => ({ ...prev, event: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                >
+                  <option>Wedding</option>
+                  <option>Pre-Wedding</option>
+                  <option>Engagement</option>
+                  <option>Baby Shower</option>
+                </select>
+              </Field>
+              <Field label="City">
+                <input
+                  value={form.city}
+                  onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                />
+              </Field>
+              <Field label="Budget">
+                <input
+                  type="number"
+                  value={form.budget}
+                  onChange={(e) => setForm((prev) => ({ ...prev, budget: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                />
+              </Field>
+              <Field label="Status">
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                >
+                  <option value="Lead">Lead</option>
+                  <option value="Active">Active</option>
+                  <option value="Archived">Archived</option>
+                </select>
+              </Field>
+            </div>
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4">
+              <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={closeModal}>
+                Cancel
+              </button>
+              <button className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white" onClick={saveClient}>
+                {form.id ? "Update" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteId && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-3xl text-rose-500">
+              !
+            </div>
+            <h3 className="mt-4 text-lg font-semibold text-charcoal-900">Delete this client?</h3>
+            <p className="mt-2 text-sm text-slate-500">This action cannot be undone.</p>
+            <div className="mt-6 flex justify-center gap-3">
+              <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={() => setDeleteId(null)}>
+                Cancel
+              </button>
+              <button className="rounded-md bg-rose-500 px-4 py-2 text-sm font-semibold text-white" onClick={confirmDelete}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Stat({ label, value, accent }) {
+  return (
+    <div className={`rounded-2xl bg-gradient-to-br ${accent} p-4 shadow-inner`}>
+      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-charcoal-900">{value}</p>
     </div>
+  );
+}
+
+function Field({ label, required, children }) {
+  return (
+    <label className="block text-sm font-medium text-slate-700">
+      {label}
+      {required && <span className="text-rose-500"> *</span>}
+      <div className="mt-1">{children}</div>
+    </label>
   );
 }

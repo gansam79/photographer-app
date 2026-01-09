@@ -50,11 +50,11 @@ const App = () => (
                 <Route path="/gallery" element={<AdminGallery />} />
                 <Route path="/users" element={<AdminUsers />} />
                 <Route path="/slider" element={<AdminSlider />} />
-                <Route path="/clients" element={<AdminClients />} />
-                <Route path="/invoices" element={<AdminInvoices />} />
-                <Route path="/quotations" element={<AdminQuotations />} />
+                <Route path="/admin/clients" element={<AdminClients />} />
+                <Route path="/admin/invoices" element={<AdminInvoices />} />
+                <Route path="/admin/quotations" element={<AdminQuotations />} />
                 <Route path="/accessories" element={<AccessoriesManagement />} />
-                <Route path="/register" element={<AdminRegister />} />
+                <Route path="/admin/register" element={<AdminRegister />} />
                 <Route path="/profile" element={<UserProfile />} />
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

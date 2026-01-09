@@ -9,11 +9,11 @@ const items = [
   { to: "/gallery", label: "Gallery" },
   { to: "/users", label: "Users" },
   { to: "/slider", label: "Slider" },
-  { to: "/clients", label: "Admin Clients" },
-  { to: "/invoices", label: "Admin Invoices" },
-  { to: "/quotations", label: "Admin Quotations" },
+  { to: "/admin/clients", label: "Admin Clients" },
+  { to: "/admin/invoices", label: "Admin Invoices" },
+  { to: "/admin/quotations", label: "Admin Quotations" },
   { to: "/accessories", label: "Accessories" },
-  { to: "/register", label: "Admin Register" },
+  { to: "/admin/register", label: "Admin Register" },
   { to: "/profile", label: "Profile" },
 ];
 
