@@ -49,18 +49,19 @@ export function createServer() {
   app.use("/api/quotations", quotationRoutes);
   app.use("/api/invoices", invoiceRoutes);
 
-  // Serve SPA for non-API GET requests (so BrowserRouter clean URLs work in dev)
-  app.get("*", (req, res, next) => {
-    try {
-      if (req.method !== "GET") return next();
-      const p = req.path || "/";
-      if (p.startsWith("/api") || p.startsWith("/dist") || p.includes(".")) return next();
-      // Serve project's index.html (Vite dev server serves index from workspace root)
-      res.sendFile(path.resolve(process.cwd(), "index.html"));
-    } catch (e) {
-      next(e);
-    }
-  });
+  // Serve SPA fallback only in production builds (Vite handles this in dev)
+  if (process.env.NODE_ENV === "production") {
+    app.get("*", (req, res, next) => {
+      try {
+        if (req.method !== "GET") return next();
+        const p = req.path || "/";
+        if (p.startsWith("/api") || p.startsWith("/dist") || p.includes(".")) return next();
+        res.sendFile(path.resolve(process.cwd(), "index.html"));
+      } catch (e) {
+        next(e);
+      }
+    });
+  }
 
   return app;
 }
