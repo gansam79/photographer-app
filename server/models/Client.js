@@ -1,21 +1,23 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const clientSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: true,
+      required: [true, 'Client name is required'],
       trim: true,
+      minlength: [2, 'Name must be at least 2 characters'],
     },
     email: {
       type: String,
-      required: true,
+      required: [true, 'Email is required'],
       lowercase: true,
       trim: true,
+      match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email'],
     },
     phone: {
       type: String,
-      required: true,
+      required: [true, 'Phone number is required'],
       trim: true,
     },
     address: {
@@ -36,8 +38,8 @@ const clientSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["Regular", "VIP", "New Inquiry"],
-      default: "New Inquiry",
+      enum: ['Regular', 'VIP', 'New Inquiry'],
+      default: 'New Inquiry',
     },
     tags: [
       {
@@ -52,17 +54,20 @@ const clientSchema = new mongoose.Schema(
     totalBilled: {
       type: Number,
       default: 0,
+      min: 0,
     },
     totalPaid: {
       type: Number,
       default: 0,
+      min: 0,
     },
     pendingAmount: {
       type: Number,
       default: 0,
+      min: 0,
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-export default mongoose.model("Client", clientSchema);
+export default mongoose.model('Client', clientSchema);
