@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { generateQuotationPDF } from "../utils/pdfGenerator";
 
 const sampleQuotations = [
   {
@@ -141,6 +142,57 @@ export default function AdminQuotations() {
       .slice(0, 5);
   }, [quotes]);
 
+  function handleGeneratePdf(quote) {
+    const services = quote.deliverables.length
+      ? quote.deliverables.map((item) => ({
+          serviceName: item,
+          quantity: 1,
+          days: 1,
+          ratePerDay: Math.round(Number(quote.total || 0) / Math.max(quote.deliverables.length, 1)),
+          total: Math.round(Number(quote.total || 0) / Math.max(quote.deliverables.length, 1)),
+        }))
+      : [
+          {
+            serviceName: quote.event,
+            quantity: 1,
+            days: 1,
+            ratePerDay: Number(quote.total || 0),
+            total: Number(quote.total || 0),
+          },
+        ];
+
+    const subtotal = Number(quote.total || 0);
+    const taxPercentage = 18;
+    const tax = Math.round((subtotal * taxPercentage) / 100);
+
+    const quotationPayload = {
+      quotationNumber: quote.quoteNo,
+      quotationDate: quote.createdAt || new Date().toISOString(),
+      eventDate: quote.shootDate || quote.createdAt,
+      validityDate: quote.followUp || quote.shootDate || quote.createdAt,
+      eventType: quote.event,
+      services,
+      subtotal,
+      discount: 0,
+      discountType: "fixed",
+      taxPercentage,
+      tax,
+      grandTotal: subtotal + tax,
+      paymentTerms: `₹${Number(quote.retainer || 0).toLocaleString()} retainer to block dates, rest before delivery`,
+      notes: quote.notes,
+      thankYouMessage: "Thank you for trusting Lumina Collective for your story.",
+    };
+
+    const clientProfile = {
+      name: quote.client,
+      email: `${quote.client?.toLowerCase().replace(/\s+/g, "") || "client"}@lumina.studio`,
+      phone: "+91 90000 00000",
+      address: quote.location,
+    };
+
+    generateQuotationPDF(quotationPayload, clientProfile);
+  }
+
   function openModal(quote = null) {
     if (quote) {
       setForm({
@@ -197,8 +249,8 @@ export default function AdminQuotations() {
   }
 
   return (
-    <section className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <section className="page-shell space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Pitching</p>
           <h1 className="text-3xl font-semibold text-charcoal-900 dark:text-white">Quotation Studio</h1>
@@ -208,7 +260,7 @@ export default function AdminQuotations() {
         </div>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gold-600"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gold-600 sm:w-auto"
           onClick={() => openModal()}
         >
           <span className="text-lg">+</span>
@@ -230,14 +282,14 @@ export default function AdminQuotations() {
               <h2 className="text-lg font-semibold text-charcoal-900">Quote Pipeline</h2>
               <p className="text-xs text-slate-500">{filteredQuotes.length} files • Sorted by shoot date</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <div className="relative">
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search client, city, quote #"
-                  className="rounded-full border border-slate-200 px-4 py-2 text-sm focus:border-gold-500 focus:outline-none"
+                  className="w-full rounded-full border border-slate-200 px-4 py-2 text-sm focus:border-gold-500 focus:outline-none"
                 />
                 <span className="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400">⌕</span>
               </div>
@@ -256,7 +308,7 @@ export default function AdminQuotations() {
               </button>
             ))}
           </div>
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full divide-y divide-slate-100 text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
@@ -328,6 +380,12 @@ export default function AdminQuotations() {
                           >
                             Mark Won
                           </button>
+                          <button
+                            className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            onClick={() => handleGeneratePdf(quote)}
+                          >
+                            PDF
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -335,6 +393,77 @@ export default function AdminQuotations() {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="grid gap-4 px-4 py-5 md:hidden">
+            {filteredQuotes.length === 0 ? (
+              <p className="text-center text-sm text-slate-500">No quotations match your filters.</p>
+            ) : (
+              filteredQuotes.map((quote) => (
+                <div key={quote.id} className="space-y-3 rounded-2xl border border-slate-100 p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-base font-semibold text-charcoal-900">{quote.quoteNo}</p>
+                      <p className="text-xs text-slate-500">{quote.stage}</p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                        quoteStatusStyles[quote.status] || "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {quote.status}
+                    </span>
+                  </div>
+                  <div className="grid gap-3 text-xs text-slate-500 sm:grid-cols-2">
+                    <div>
+                      <p className="text-sm font-semibold text-charcoal-900">{quote.client}</p>
+                      <p>
+                        {quote.event} • {quote.location}
+                      </p>
+                    </div>
+                    <div>
+                      <p>Shoot — {formatDate(quote.shootDate)}</p>
+                      <p>Issued — {formatDate(quote.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div className="text-sm font-semibold text-charcoal-900">{formatCurrency(quote.total)}</div>
+                  <ul className="text-xs text-slate-600">
+                    {quote.deliverables.slice(0, 3).map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <span>Follow-up {formatDate(quote.followUp)}</span>
+                    <div className="flex gap-2 text-xs">
+                      <button
+                        className="rounded-md border border-slate-200 px-3 py-1 font-semibold text-slate-700"
+                        onClick={() => openModal(quote)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="rounded-md border border-blue-100 px-3 py-1 font-semibold text-blue-600"
+                        onClick={() => duplicateQuote(quote)}
+                      >
+                        Copy
+                      </button>
+                      <button
+                        className="rounded-md border border-emerald-100 px-3 py-1 font-semibold text-emerald-600"
+                        onClick={() => markAccepted(quote.id)}
+                        disabled={quote.status === "Accepted"}
+                      >
+                        Won
+                      </button>
+                        <button
+                          className="rounded-md border border-slate-200 px-3 py-1 font-semibold text-slate-700"
+                          onClick={() => handleGeneratePdf(quote)}
+                        >
+                          PDF
+                        </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

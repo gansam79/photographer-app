@@ -43,7 +43,7 @@ export default function AdminRegister() {
   };
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-6">
+    <section className="page-shell space-y-6">
       <header className="rounded-3xl bg-gradient-to-br from-charcoal-900 via-charcoal-800 to-charcoal-900 p-6 text-white">
         <p className="text-xs uppercase tracking-[0.35em] text-white/60">Onboard</p>
         <h1 className="mt-2 text-3xl font-semibold">Invite a Core Admin</h1>

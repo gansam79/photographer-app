@@ -180,7 +180,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <section className="space-y-6">
+    <section className="page-shell space-y-6">
       <header className="rounded-3xl bg-gradient-to-br from-charcoal-900 via-charcoal-800 to-charcoal-900 p-6 text-white">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

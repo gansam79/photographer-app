@@ -181,8 +181,8 @@ export default function AdminInvoices() {
   }
 
   return (
-    <section className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <section className="page-shell space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Finance</p>
           <h1 className="text-3xl font-semibold text-charcoal-900 dark:text-white">Invoice Command Center</h1>
@@ -192,7 +192,7 @@ export default function AdminInvoices() {
         </div>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gold-600"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gold-600 sm:w-auto"
           onClick={() => openModal()}
         >
           <span className="text-lg">+</span>
@@ -214,14 +214,14 @@ export default function AdminInvoices() {
               <h2 className="text-lg font-semibold text-charcoal-900">Invoice Ledger</h2>
               <p className="text-xs text-slate-500">Sorted by due date • {filteredInvoices.length} active</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <div className="relative">
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search client, event, invoice #"
-                  className="rounded-full border border-slate-200 px-4 py-2 text-sm focus:border-gold-500 focus:outline-none"
+                  className="w-full rounded-full border border-slate-200 px-4 py-2 text-sm focus:border-gold-500 focus:outline-none"
                 />
                 <span className="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400">⌕</span>
               </div>
@@ -240,7 +240,7 @@ export default function AdminInvoices() {
               </button>
             ))}
           </div>
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full divide-y divide-slate-100 text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
@@ -316,6 +316,69 @@ export default function AdminInvoices() {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="grid gap-4 px-4 py-5 md:hidden">
+            {filteredInvoices.length === 0 ? (
+              <p className="text-center text-sm text-slate-500">No invoices match your filters.</p>
+            ) : (
+              filteredInvoices.map((invoice) => {
+                const balance = Math.max(Number(invoice.amount) - Number(invoice.paid), 0);
+                const progress = Math.min(100, Math.round((Number(invoice.paid || 0) / Number(invoice.amount || 1)) * 100));
+                return (
+                  <div key={invoice.id} className="space-y-3 rounded-2xl border border-slate-100 p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-base font-semibold text-charcoal-900">{invoice.invoiceNo}</p>
+                        <p className="text-xs text-slate-500">{invoice.stage}</p>
+                      </div>
+                      <span
+                        className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                          statusStyles[invoice.status] || "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {isOverdue(invoice) ? "Overdue" : invoice.status}
+                      </span>
+                    </div>
+                    <div className="grid gap-3 text-xs text-slate-500 sm:grid-cols-2">
+                      <div>
+                        <p className="text-sm font-semibold text-charcoal-900">{invoice.client}</p>
+                        <p>{invoice.event}</p>
+                      </div>
+                      <div>
+                        <p>Issue — {formatDate(invoice.issueDate)}</p>
+                        <p>Due — {formatDate(invoice.dueDate)}</p>
+                      </div>
+                    </div>
+                    <div className="text-sm font-semibold text-charcoal-900">{formatCurrency(invoice.amount)}</div>
+                    <div>
+                      <div className="text-xs font-semibold text-slate-600">{progress}% collected</div>
+                      <div className="mt-1 h-2 rounded-full bg-slate-100">
+                        <div className="h-full rounded-full bg-gold-500" style={{ width: `${progress}%` }} />
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">Balance {formatCurrency(balance)}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                      <span>{invoice.paymentMethod}</span>
+                      <div className="flex gap-2 text-xs">
+                        <button
+                          className="rounded-md border border-slate-200 px-3 py-1 font-semibold text-slate-700"
+                          onClick={() => openModal(invoice)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="rounded-md border border-emerald-100 px-3 py-1 font-semibold text-emerald-600"
+                          onClick={() => markAsPaid(invoice.id)}
+                          disabled={invoice.status === "Paid"}
+                        >
+                          Paid
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 

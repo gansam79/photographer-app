@@ -1,4 +1,4 @@
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 
 export const generatePDF = async (elementId, filename) => {
@@ -12,9 +12,10 @@ export const generatePDF = async (elementId, filename) => {
       scale: 2,
       useCORS: true,
       logging: false,
+      allowTaint: true,
     });
 
-    const imgData = canvas.toDataURL("image/png");
+    const imgData = canvas.toDataURL("image/jpeg", 0.95);
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -29,13 +30,13 @@ export const generatePDF = async (elementId, filename) => {
     let heightLeft = imgHeight;
     let position = 10;
 
-    pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+    pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
     heightLeft -= pageHeight - 20;
 
     while (heightLeft >= 0) {
       position = heightLeft - imgHeight + 10;
       pdf.addPage();
-      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
       heightLeft -= pageHeight - 20;
     }
 
@@ -161,9 +162,12 @@ export const generateQuotationPDF = (quotation, client) => {
   tempDiv.style.display = "none";
   document.body.appendChild(tempDiv);
 
-  setTimeout(() => {
-    generatePDF("pdf-content", `Quotation-${quotation.quotationNumber}.pdf`);
-    document.body.removeChild(tempDiv);
+  setTimeout(async () => {
+    try {
+      await generatePDF("pdf-content", `Quotation-${quotation.quotationNumber}.pdf`);
+    } finally {
+      document.body.removeChild(tempDiv);
+    }
   }, 500);
 };
 
@@ -291,8 +295,11 @@ export const generateInvoicePDF = (invoice, client) => {
   tempDiv.style.display = "none";
   document.body.appendChild(tempDiv);
 
-  setTimeout(() => {
-    generatePDF("pdf-content", `Invoice-${invoice.invoiceNumber}.pdf`);
-    document.body.removeChild(tempDiv);
+  setTimeout(async () => {
+    try {
+      await generatePDF("pdf-content", `Invoice-${invoice.invoiceNumber}.pdf`);
+    } finally {
+      document.body.removeChild(tempDiv);
+    }
   }, 500);
 };

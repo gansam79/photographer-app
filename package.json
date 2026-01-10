@@ -17,6 +17,7 @@
     "build:server": "node --require ./scripts/crypto-hash-polyfill.cjs ./node_modules/vite/bin/vite.js build --config vite.config.server.ts",
     "start": "node dist/server/node-build.mjs",
     "test": "node --require ./scripts/crypto-hash-polyfill.cjs ./node_modules/vitest/vitest.mjs run",
+    "seed": "node server/scripts/seed-database.js",
     "format.fix": "prettier --write .",
     "typecheck": "tsc"
   },
