@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const seedClients = [
   {
@@ -54,8 +56,36 @@ const statusMap = {
 };
 
 export default function AdminClients() {
-  const [clients, setClients] = useState(seedClients);
+  const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Fetch Clients
+  const { data: clients = [], isLoading, isError, error } = useQuery({
+    queryKey: ["clients"],
+    queryFn: async () => {
+      console.log("Fetching clients from /api/clients...");
+      const res = await fetch("/api/clients");
+      console.log("Fetch status:", res.status);
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Fetch failed:", text);
+        throw new Error("Failed to fetch clients");
+      }
+      const data = await res.json();
+      console.log("Raw API Data:", data);
+
+      // Map Backend -> Frontend
+      return data.map(c => ({
+        ...c,
+        id: c._id,
+        whatsapp: c.whatsapp || c.phone || "",
+        event: c.event || c.eventType || "Wedding",
+        budget: c.budget || 0,
+        status: c.status || "Lead"
+      }));
+    },
+    enabled: true,
+  });
   const [form, setForm] = useState(emptyClient);
   const [deleteId, setDeleteId] = useState(null);
 
@@ -78,26 +108,70 @@ export default function AdminClients() {
     setForm(emptyClient);
   };
 
-  const saveClient = () => {
-    if (!form.name.trim() || !form.whatsapp.trim()) return;
-    if (form.id) {
-      setClients((prev) => prev.map((c) => (c.id === form.id ? { ...c, ...form } : c)));
-    } else {
-      setClients((prev) => [
-        {
-          ...form,
-          id: crypto.randomUUID(),
-          createdAt: new Date().toISOString().slice(0, 10),
+  const mutation = useMutation({
+    mutationFn: async (clientData) => {
+      const url = clientData.id ? `/api/clients/${clientData.id}` : "/api/clients";
+      const method = clientData.id ? "PUT" : "POST";
+
+      const payload = {
+        ...clientData,
+        phone: clientData.whatsapp, // Map UI 'whatsapp' to API 'phone'
+      };
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
         },
-        ...prev,
-      ]);
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to save client");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["clients"]);
+      toast.success(form.id ? "Client updated" : "Client created");
+      closeModal();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const saveClient = () => {
+    if (!form.name.trim() || !form.whatsapp.trim()) {
+      toast.error("Name and WhatsApp are required");
+      return;
     }
-    closeModal();
+    mutation.mutate(form);
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/api/clients/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to delete client");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["clients"]);
+      toast.success("Client deleted");
+      setDeleteId(null);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   const confirmDelete = () => {
-    setClients((prev) => prev.filter((c) => c.id !== deleteId));
-    setDeleteId(null);
+    deleteMutation.mutate(deleteId);
   };
 
   return (
@@ -148,7 +222,19 @@ export default function AdminClients() {
               </tr>
             </thead>
             <tbody>
-              {clients.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
+                    Loading clients...
+                  </td>
+                </tr>
+              ) : isError ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-rose-500">
+                    Failed to load clients. Please check your connection or login again.
+                  </td>
+                </tr>
+              ) : clients.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
                     No clients yet. Start by adding your first booking.

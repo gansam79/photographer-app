@@ -66,6 +66,14 @@ const clientSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // New fields for CRM
+    event: { type: String, trim: true },
+    budget: { type: Number, default: 0 },
+    status: {
+      type: String,
+      enum: ['Lead', 'Active', 'Archived'],
+      default: 'Lead'
+    },
   },
   { timestamps: true }
 );

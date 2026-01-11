@@ -38,15 +38,44 @@ export const getQuotationById = async (req, res) => {
 // Create quotation
 export const createQuotation = async (req, res) => {
   try {
+    let { clientId, clientName, client } = req.body;
+
+    // Handle "Client" string from frontend
+    const nameToSearch = clientName || client;
+
+    // If no ID but we have a name, try to find or create the client
+    if (!clientId && nameToSearch) {
+      let existingClient = await Client.findOne({ name: nameToSearch });
+      if (existingClient) {
+        clientId = existingClient._id;
+      } else {
+        // Create new Lead client
+        const newClient = await Client.create({
+          name: nameToSearch,
+          email: `pending-${Date.now()}@example.com`, // Placeholder
+          phone: "0000000000",
+          status: 'Lead'
+        });
+        clientId = newClient._id;
+      }
+    }
+
     const quotationNumber = await generateQuotationNumber();
     const quotationData = {
       ...req.body,
       quotationNumber,
+      clientId,
+      clientName: nameToSearch // Snapshot
     };
 
     const quotation = new Quotation(quotationData);
     const savedQuotation = await quotation.save();
-    await savedQuotation.populate('clientId');
+
+    // Try populating if we have an ID, otherwise ignore
+    if (clientId) {
+      await savedQuotation.populate('clientId');
+    }
+
     res.status(201).json(savedQuotation);
   } catch (error) {
     res.status(400).json({ message: error.message });

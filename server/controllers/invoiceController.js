@@ -42,10 +42,50 @@ export const getInvoiceById = async (req, res) => {
 // Create invoice
 export const createInvoice = async (req, res) => {
   try {
+    console.log("Create Invoice Body:", req.body); // Debug log
+
+    let { clientId, clientName, client, amount, paid, amountPaid, dueDate, invoiceDate, issueDate } = req.body;
+
+    // Handle "Client" string
+    const nameToSearch = clientName || client;
+
+    if (!clientId && nameToSearch) {
+      let existingClient = await Client.findOne({ name: nameToSearch });
+      if (existingClient) {
+        clientId = existingClient._id;
+      } else {
+        const newClient = await Client.create({
+          name: nameToSearch,
+          email: `invoice-${Date.now()}@example.com`, // Avoid duplicate key error
+          phone: "0000000000",
+          status: 'Active'
+        });
+        clientId = newClient._id;
+      }
+    }
+
     const invoiceNumber = await generateInvoiceNumber();
+
+    // Robust date handling
+    const validInvoiceDate = invoiceDate || issueDate || new Date();
+    const validDueDate = dueDate ? new Date(dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Default +7 days
+
     const invoiceData = {
       ...req.body,
       invoiceNumber,
+      clientId: clientId, // Explicitly use the variable we resolved above
+      clientName: nameToSearch,
+      grandTotal: Number(amount) || Number(req.body.grandTotal) || 0,
+      subtotal: Number(amount) || Number(req.body.grandTotal) || 0, // Ensure strictly numeric
+      // Force clientId if somehow missing (should be caught above, but safety net)
+      clientId: clientId || undefined,
+      amountPaid: Number(paid) || Number(amountPaid) || 0,
+      invoiceDate: validInvoiceDate,
+      eventDate: req.body.eventDate || validInvoiceDate,
+      dueDate: validDueDate,
+      eventType: req.body.eventType || req.body.event || 'Wedding',
+      paymentStatus: req.body.paymentStatus || req.body.status || 'Unpaid',
+      services: req.body.services && Array.isArray(req.body.services) ? req.body.services : [],
     };
 
     const invoice = new Invoice(invoiceData);
@@ -60,14 +100,17 @@ export const createInvoice = async (req, res) => {
       });
     }
 
-    // Update client totals
-    await Client.findByIdAndUpdate(req.body.clientId, {
-      $inc: { totalBilled: savedInvoice.grandTotal },
-      pendingAmount: savedInvoice.grandTotal,
-    });
+    // Update client totals if we have a real client
+    if (clientId) {
+      await Client.findByIdAndUpdate(clientId, {
+        $inc: { totalBilled: savedInvoice.grandTotal },
+        pendingAmount: savedInvoice.grandTotal - (savedInvoice.amountPaid || 0),
+      });
+    }
 
-    await savedInvoice.populate('clientId');
-    await savedInvoice.populate('quotationId');
+    if (clientId) await savedInvoice.populate('clientId');
+    if (savedInvoice.quotationId) await savedInvoice.populate('quotationId');
+
     res.status(201).json(savedInvoice);
   } catch (error) {
     res.status(400).json({ message: error.message });

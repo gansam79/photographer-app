@@ -25,7 +25,7 @@ export const getClientById = async (req, res) => {
 
 // Create client
 export const createClient = async (req, res) => {
-  const { name, email, phone, address, city, state, zipCode, category, tags, notes } = req.body;
+  const { name, email, phone, whatsapp, address, city, state, zipCode, category, tags, notes, event, budget, status } = req.body;
 
   // Validation
   if (!name || !email || !phone) {
@@ -36,7 +36,7 @@ export const createClient = async (req, res) => {
     const client = new Client({
       name,
       email,
-      phone,
+      phone: phone || whatsapp, // Accept phone or whatsapp
       address,
       city,
       state,
@@ -44,6 +44,9 @@ export const createClient = async (req, res) => {
       category,
       tags,
       notes,
+      event,
+      budget,
+      status,
     });
 
     const savedClient = await client.save();

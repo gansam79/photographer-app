@@ -1,80 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { generateQuotationPDF } from "../utils/pdfGenerator";
-
-const sampleQuotations = [
-  {
-    id: "QT-1058",
-    quoteNo: "QT-1058",
-    client: "Rahul & Sneha",
-    event: "Wedding",
-    location: "Pune",
-    shootDate: "2026-02-12",
-    createdAt: "2025-12-22",
-    total: 135000,
-    retainer: 50000,
-    status: "Sent",
-    stage: "Awaiting Approval",
-    deliverables: ["2-day cinematic coverage", "Highlight film", "Signature album"],
-    followUp: "2026-01-04",
-    channel: "WhatsApp",
-    moodboard: "https://mood.com/rahul-sneha",
-    notes: "Need drone add-on confirmation.",
-  },
-  {
-    id: "QT-1049",
-    quoteNo: "QT-1049",
-    client: "Ishaan Patil",
-    event: "Pre-Wedding",
-    location: "Mahabaleshwar",
-    shootDate: "2026-01-18",
-    createdAt: "2025-12-10",
-    total: 62000,
-    retainer: 20000,
-    status: "Accepted",
-    stage: "Contract Sent",
-    deliverables: ["Full-day coverage", "8 looks moodboard", "Instagram teaser"],
-    followUp: "2026-01-05",
-    channel: "Email",
-    moodboard: "https://mood.com/ishaan",
-    notes: "Confirmed mountaintop shoot.",
-  },
-  {
-    id: "QT-1035",
-    quoteNo: "QT-1035",
-    client: "Aditi & Neel",
-    event: "Engagement",
-    location: "Mumbai",
-    shootDate: "2026-03-09",
-    createdAt: "2025-11-02",
-    total: 88000,
-    retainer: 30000,
-    status: "Negotiation",
-    stage: "Budget Review",
-    deliverables: ["City + beach coverage", "Story film", "Parent edit"],
-    followUp: "2026-01-07",
-    channel: "WhatsApp",
-    moodboard: "https://mood.com/aditi-neel",
-    notes: "Considering deluxe album upgrade.",
-  },
-  {
-    id: "QT-1021",
-    quoteNo: "QT-1021",
-    client: "Studio Samarth",
-    event: "Commercial",
-    location: "Mumbai",
-    shootDate: "2026-01-30",
-    createdAt: "2025-10-15",
-    total: 156000,
-    retainer: 60000,
-    status: "Expired",
-    stage: "Archived",
-    deliverables: ["Product catalogue", "Launch film", "BTS reel"],
-    followUp: "2025-12-01",
-    channel: "Email",
-    moodboard: "",
-    notes: "Budget shifted to Q3.",
-  },
-];
+import QuotationForm from "../components/QuotationForm";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const quoteStatusStyles = {
   Draft: "bg-slate-100 text-slate-600",
@@ -87,31 +15,44 @@ const quoteStatusStyles = {
 
 const statusFilters = ["all", "Draft", "Sent", "Negotiation", "Accepted", "Rejected", "Expired"];
 
-const emptyQuote = {
-  id: null,
-  quoteNo: "",
-  client: "",
-  event: "Wedding",
-  location: "",
-  shootDate: "",
-  total: "",
-  retainer: "",
-  status: "Draft",
-  stage: "Concept",
-  deliverables: "",
-  followUp: "",
-  channel: "Email",
-  moodboard: "",
-  notes: "",
-};
-
 export default function AdminQuotations() {
-  const [quotes, setQuotes] = useState(sampleQuotations);
+  const queryClient = useQueryClient();
+
+  const { data: quotes = [], isLoading } = useQuery({
+    queryKey: ["quotations"],
+    queryFn: async () => {
+      const res = await fetch("/api/quotations");
+      if (!res.ok) throw new Error("Failed to fetch quotations");
+
+      const data = await res.json();
+      // Map Backend fields to Frontend shape
+      return data.map((q) => ({
+        ...q,
+        id: q._id,
+        quoteNo: q.quotationNumber,
+        client: q.clientId?.name || "Unknown",
+        event: q.eventType,
+        shootDate: q.eventDate,
+        createdAt: q.quotationDate,
+        location: q.clientId?.city || q.location || "—",
+        total: q.grandTotal,
+        retainer: q.retainerAmount ?? Math.round((q.grandTotal || 0) * 0.3),
+        status: q.status || "Draft",
+        stage: q.workflowStage || "Concept",
+        followUp: q.validityDate,
+        channel: q.channel || "Email",
+        moodboard: q.moodboard || "",
+        notes: q.notes || "",
+        deliverables: (q.services || []).map((service) => service.serviceName || service.description || "Package item"),
+      }));
+    },
+    enabled: true,
+  });
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState(emptyQuote);
-  const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [activeQuote, setActiveQuote] = useState(null);
 
   const stats = useMemo(() => {
     const sent = quotes.filter((q) => q.status !== "Draft").length;
@@ -143,104 +84,65 @@ export default function AdminQuotations() {
   }, [quotes]);
 
   function handleGeneratePdf(quote) {
-    const services = quote.deliverables.length
-      ? quote.deliverables.map((item) => ({
-          serviceName: item,
-          quantity: 1,
-          days: 1,
-          ratePerDay: Math.round(Number(quote.total || 0) / Math.max(quote.deliverables.length, 1)),
-          total: Math.round(Number(quote.total || 0) / Math.max(quote.deliverables.length, 1)),
-        }))
-      : [
-          {
-            serviceName: quote.event,
-            quantity: 1,
-            days: 1,
-            ratePerDay: Number(quote.total || 0),
-            total: Number(quote.total || 0),
-          },
-        ];
-
-    const subtotal = Number(quote.total || 0);
-    const taxPercentage = 18;
-    const tax = Math.round((subtotal * taxPercentage) / 100);
-
-    const quotationPayload = {
-      quotationNumber: quote.quoteNo,
-      quotationDate: quote.createdAt || new Date().toISOString(),
-      eventDate: quote.shootDate || quote.createdAt,
-      validityDate: quote.followUp || quote.shootDate || quote.createdAt,
-      eventType: quote.event,
-      services,
-      subtotal,
-      discount: 0,
-      discountType: "fixed",
-      taxPercentage,
-      tax,
-      grandTotal: subtotal + tax,
-      paymentTerms: `₹${Number(quote.retainer || 0).toLocaleString()} retainer to block dates, rest before delivery`,
-      notes: quote.notes,
-      thankYouMessage: "Thank you for trusting Lumina Collective for your story.",
-    };
-
-    const clientProfile = {
+    const clientProfile = quote.clientId || {
       name: quote.client,
-      email: `${quote.client?.toLowerCase().replace(/\s+/g, "") || "client"}@lumina.studio`,
+      email: `${quote.client?.toLowerCase().replace(/\s+/g, "") || "client"}@studio.com`,
       phone: "+91 90000 00000",
       address: quote.location,
     };
 
-    generateQuotationPDF(quotationPayload, clientProfile);
+    generateQuotationPDF(quote, clientProfile);
   }
 
-  function openModal(quote = null) {
-    if (quote) {
-      setForm({
-        ...quote,
-        deliverables: quote.deliverables?.join("\n") || "",
+  function openForm(quote = null) {
+    setActiveQuote(quote);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setActiveQuote(null);
+    setShowForm(false);
+  }
+
+  function handleFormSaved() {
+    closeForm();
+    queryClient.invalidateQueries(["quotations"]);
+  }
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status, stage }) => {
+      const res = await fetch(`/api/quotations/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status, stage }),
       });
-      setEditingId(quote.id);
-    } else {
-      setForm({ ...emptyQuote });
-      setEditingId(null);
+      if (!res.ok) throw new Error("Failed to update status");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["quotations"]);
+      toast.success("Status updated");
     }
-    setModalOpen(true);
-  }
-
-  function saveQuote() {
-    if (!form.client.trim() || !form.quoteNo.trim()) return;
-    const payload = {
-      ...form,
-      total: Number(form.total) || 0,
-      retainer: Number(form.retainer) || 0,
-      deliverables: form.deliverables
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean),
-    };
-    if (editingId) {
-      setQuotes((prev) => prev.map((q) => (q.id === editingId ? { ...q, ...payload } : q)));
-    } else {
-      const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `QT-${Date.now()}`;
-      setQuotes((prev) => [{ ...payload, id }, ...prev]);
-    }
-    setModalOpen(false);
-  }
+  });
 
   function markAccepted(id) {
-    setQuotes((prev) => prev.map((q) => (q.id === id ? { ...q, status: "Accepted", stage: "Booked" } : q)));
+    statusMutation.mutate({ id, status: "Accepted", stage: "Booked" });
   }
 
-  function duplicateQuote(quote) {
-    const copy = {
-      ...quote,
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `QT-${Date.now()}`,
-      quoteNo: `${quote.quoteNo}-A`,
-      status: "Draft",
-      stage: "Concept",
-    };
-    setQuotes((prev) => [copy, ...prev]);
-  }
+  const duplicateMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/api/quotations/${id}/duplicate`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to duplicate quotation");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Quotation duplicated");
+      queryClient.invalidateQueries(["quotations"]);
+    },
+    onError: (err) => toast.error(err.message || "Unable to duplicate quote"),
+  });
 
   function formatCurrency(value) {
     return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
@@ -261,7 +163,7 @@ export default function AdminQuotations() {
         <button
           type="button"
           className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gold-600 sm:w-auto"
-          onClick={() => openModal()}
+          onClick={() => openForm()}
         >
           <span className="text-lg">+</span>
           Compose Quote
@@ -299,9 +201,8 @@ export default function AdminQuotations() {
             {statusFilters.map((value) => (
               <button
                 key={value}
-                className={`rounded-full border px-3 py-1 capitalize transition ${
-                  filter === value ? "border-gold-500 bg-gold-50 text-gold-600" : "border-transparent bg-slate-100 text-slate-600"
-                }`}
+                className={`rounded-full border px-3 py-1 capitalize transition ${filter === value ? "border-gold-500 bg-gold-50 text-gold-600" : "border-transparent bg-slate-100 text-slate-600"
+                  }`}
                 onClick={() => setFilter(value)}
               >
                 {value === "all" ? "All" : value}
@@ -363,13 +264,13 @@ export default function AdminQuotations() {
                         <div className="inline-flex gap-2">
                           <button
                             className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                            onClick={() => openModal(quote)}
+                            onClick={() => openForm(quote)}
                           >
                             Edit
                           </button>
                           <button
                             className="rounded-md border border-blue-100 px-3 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50"
-                            onClick={() => duplicateQuote(quote)}
+                            onClick={() => duplicateMutation.mutate(quote.id)}
                           >
                             Duplicate
                           </button>
@@ -406,9 +307,8 @@ export default function AdminQuotations() {
                       <p className="text-xs text-slate-500">{quote.stage}</p>
                     </div>
                     <span
-                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                        quoteStatusStyles[quote.status] || "bg-slate-100 text-slate-600"
-                      }`}
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${quoteStatusStyles[quote.status] || "bg-slate-100 text-slate-600"
+                        }`}
                     >
                       {quote.status}
                     </span>
@@ -436,13 +336,13 @@ export default function AdminQuotations() {
                     <div className="flex gap-2 text-xs">
                       <button
                         className="rounded-md border border-slate-200 px-3 py-1 font-semibold text-slate-700"
-                        onClick={() => openModal(quote)}
+                        onClick={() => openForm(quote)}
                       >
                         Edit
                       </button>
                       <button
                         className="rounded-md border border-blue-100 px-3 py-1 font-semibold text-blue-600"
-                        onClick={() => duplicateQuote(quote)}
+                        onClick={() => duplicateMutation.mutate(quote.id)}
                       >
                         Copy
                       </button>
@@ -453,12 +353,12 @@ export default function AdminQuotations() {
                       >
                         Won
                       </button>
-                        <button
-                          className="rounded-md border border-slate-200 px-3 py-1 font-semibold text-slate-700"
-                          onClick={() => handleGeneratePdf(quote)}
-                        >
-                          PDF
-                        </button>
+                      <button
+                        className="rounded-md border border-slate-200 px-3 py-1 font-semibold text-slate-700"
+                        onClick={() => handleGeneratePdf(quote)}
+                      >
+                        PDF
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -523,163 +423,8 @@ export default function AdminQuotations() {
         </div>
       </div>
 
-      {modalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Quotation</p>
-                <h2 className="text-2xl font-semibold text-charcoal-900">{editingId ? "Edit Quote" : "Compose Quote"}</h2>
-              </div>
-              <button className="text-slate-400 hover:text-slate-600" onClick={() => setModalOpen(false)}>
-                ✕
-              </button>
-            </div>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <Field label="Quote No." required>
-                <input
-                  value={form.quoteNo}
-                  onChange={(e) => setForm((prev) => ({ ...prev, quoteNo: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </Field>
-              <Field label="Client" required>
-                <input
-                  value={form.client}
-                  onChange={(e) => setForm((prev) => ({ ...prev, client: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </Field>
-              <Field label="Event Type">
-                <select
-                  value={form.event}
-                  onChange={(e) => setForm((prev) => ({ ...prev, event: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  <option>Wedding</option>
-                  <option>Pre-Wedding</option>
-                  <option>Engagement</option>
-                  <option>Commercial</option>
-                  <option>Baby Shower</option>
-                </select>
-              </Field>
-              <Field label="Shoot Date">
-                <input
-                  type="date"
-                  value={form.shootDate}
-                  onChange={(e) => setForm((prev) => ({ ...prev, shootDate: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </Field>
-              <Field label="Location">
-                <input
-                  value={form.location}
-                  onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </Field>
-              <Field label="Value" required>
-                <input
-                  type="number"
-                  value={form.total}
-                  onChange={(e) => setForm((prev) => ({ ...prev, total: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </Field>
-              <Field label="Retainer">
-                <input
-                  type="number"
-                  value={form.retainer}
-                  onChange={(e) => setForm((prev) => ({ ...prev, retainer: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </Field>
-              <Field label="Status">
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  <option>Draft</option>
-                  <option>Sent</option>
-                  <option>Negotiation</option>
-                  <option>Accepted</option>
-                  <option>Rejected</option>
-                  <option>Expired</option>
-                </select>
-              </Field>
-              <Field label="Workflow Stage">
-                <select
-                  value={form.stage}
-                  onChange={(e) => setForm((prev) => ({ ...prev, stage: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  <option>Concept</option>
-                  <option>Styled Deck</option>
-                  <option>Budget Review</option>
-                  <option>Contract Sent</option>
-                  <option>Booked</option>
-                </select>
-              </Field>
-              <Field label="Follow-up Date">
-                <input
-                  type="date"
-                  value={form.followUp}
-                  onChange={(e) => setForm((prev) => ({ ...prev, followUp: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </Field>
-              <Field label="Channel">
-                <select
-                  value={form.channel}
-                  onChange={(e) => setForm((prev) => ({ ...prev, channel: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  <option>Email</option>
-                  <option>WhatsApp</option>
-                  <option>Call</option>
-                </select>
-              </Field>
-              <div className="md:col-span-2">
-                <Field label="Deliverables (one per line)">
-                  <textarea
-                    rows={3}
-                    value={form.deliverables}
-                    onChange={(e) => setForm((prev) => ({ ...prev, deliverables: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                  />
-                </Field>
-              </div>
-              <div className="md:col-span-2">
-                <Field label="Moodboard URL">
-                  <input
-                    value={form.moodboard}
-                    onChange={(e) => setForm((prev) => ({ ...prev, moodboard: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                  />
-                </Field>
-              </div>
-              <div className="md:col-span-2">
-                <Field label="Notes">
-                  <textarea
-                    rows={3}
-                    value={form.notes}
-                    onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                  />
-                </Field>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4">
-              <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={() => setModalOpen(false)}>
-                Cancel
-              </button>
-              <button className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white" onClick={saveQuote}>
-                {editingId ? "Update" : "Save"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {showForm && (
+        <QuotationForm quotation={activeQuote} onSave={handleFormSaved} onCancel={closeForm} />
       )}
     </section>
   );
@@ -705,16 +450,6 @@ function Blueprint({ title, items }) {
         ))}
       </ul>
     </div>
-  );
-}
-
-function Field({ label, required, children }) {
-  return (
-    <label className="block text-sm font-medium text-slate-700">
-      {label}
-      {required && <span className="text-rose-500"> *</span>}
-      <div className="mt-1">{children}</div>
-    </label>
   );
 }
 

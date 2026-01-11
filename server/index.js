@@ -4,10 +4,10 @@ import path from "path";
 import cors from "cors";
 import { connectDB, getDbStatus } from "./db.js";
 import { handleDemo } from "./routes/demo.js";
-import clientRoutes from "./routes/clients.js";
-import serviceRoutes from "./routes/services.js";
-import quotationRoutes from "./routes/quotations.js";
-import invoiceRoutes from "./routes/invoices.js";
+import clientRoutes from "./routes/clientRoutes.js";
+import serviceRoutes from "./routes/serviceRoutes.js";
+import quotationRoutes from "./routes/quotationRoutes.js";
+import invoiceRoutes from "./routes/invoiceRoutes.js";
 import authRoutes from "./routes/auth.js";
 
 export function createServer() {
@@ -65,3 +65,5 @@ export function createServer() {
 
   return app;
 }
+
+

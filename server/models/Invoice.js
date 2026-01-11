@@ -10,7 +10,7 @@ const invoiceSchema = new mongoose.Schema(
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Client',
-      required: [true, 'Client is required'],
+      required: false,
     },
     quotationId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -19,7 +19,6 @@ const invoiceSchema = new mongoose.Schema(
     },
     eventType: {
       type: String,
-      enum: ['Wedding', 'Pre-wedding', 'Other'],
       required: [true, 'Event type is required'],
     },
     invoiceDate: {
@@ -34,39 +33,42 @@ const invoiceSchema = new mongoose.Schema(
       type: Date,
       required: [true, 'Due date is required'],
     },
-    services: [
-      {
-        serviceId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'Service',
-          required: true,
+    services: {
+      type: [
+        {
+          serviceId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Service',
+            required: true,
+          },
+          serviceName: String,
+          quantity: {
+            type: Number,
+            default: 1,
+            min: [1, 'Quantity must be at least 1'],
+          },
+          days: {
+            type: Number,
+            default: 1,
+            min: [1, 'Days must be at least 1'],
+          },
+          ratePerDay: {
+            type: Number,
+            required: true,
+            min: [0, 'Rate cannot be negative'],
+          },
+          total: {
+            type: Number,
+            required: true,
+            min: [0, 'Total cannot be negative'],
+          },
         },
-        serviceName: String,
-        quantity: {
-          type: Number,
-          default: 1,
-          min: [1, 'Quantity must be at least 1'],
-        },
-        days: {
-          type: Number,
-          default: 1,
-          min: [1, 'Days must be at least 1'],
-        },
-        ratePerDay: {
-          type: Number,
-          required: true,
-          min: [0, 'Rate cannot be negative'],
-        },
-        total: {
-          type: Number,
-          required: true,
-          min: [0, 'Total cannot be negative'],
-        },
-      },
-    ],
+      ],
+      default: [], // Allow empty services for quick invoices
+    },
     subtotal: {
       type: Number,
-      required: true,
+      default: 0,
       min: [0, 'Subtotal cannot be negative'],
     },
     discount: {
@@ -92,14 +94,19 @@ const invoiceSchema = new mongoose.Schema(
     },
     grandTotal: {
       type: Number,
-      required: true,
+      default: 0,
       min: [0, 'Grand total cannot be negative'],
     },
     paymentStatus: {
       type: String,
-      enum: ['Paid', 'Partially Paid', 'Unpaid'],
+      enum: ['Paid', 'Partially Paid', 'Partial', 'Unpaid', 'Overdue', 'Draft', 'Sent'],
       default: 'Unpaid',
     },
+    // Enhanced CRM Fields
+    amountPaid: { type: Number, default: 0, min: 0 },
+    workflowStage: { type: String, default: 'Planning' },
+    paymentMethod: { type: String, default: 'UPI' },
+    clientName: { type: String, trim: true },
     bankDetails: {
       accountName: String,
       accountNumber: String,

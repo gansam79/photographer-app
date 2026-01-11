@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const seedInvoices = [
   {
@@ -85,7 +87,34 @@ const statusStyles = {
 const filterOptions = ["all", "Draft", "Sent", "Partial", "Paid", "Overdue"];
 
 export default function AdminInvoices() {
-  const [invoices, setInvoices] = useState(seedInvoices);
+  const queryClient = useQueryClient();
+
+  const { data: invoices = [], isLoading } = useQuery({
+    queryKey: ["invoices"],
+    queryFn: async () => {
+      const res = await fetch("/api/invoices");
+      if (!res.ok) throw new Error("Failed to fetch invoices");
+      const data = await res.json();
+
+      // Map Backend to Frontend
+      return data.map(inv => ({
+        ...inv,
+        id: inv._id,
+        invoiceNo: inv.invoiceNumber,
+        client: inv.clientName || inv.clientId?.name || "Unknown",
+        event: inv.eventType,
+        issueDate: inv.invoiceDate,
+        dueDate: inv.dueDate,
+        amount: inv.grandTotal,
+        paid: inv.amountPaid,
+        status: inv.paymentStatus,
+        stage: inv.workflowStage,
+        paymentMethod: inv.paymentMethod
+      }));
+    },
+    enabled: true,
+  });
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
@@ -152,26 +181,82 @@ export default function AdminInvoices() {
     setModalOpen(true);
   }
 
+  const mutation = useMutation({
+    mutationFn: async (invoiceData) => {
+      const url = editingId ? `/api/invoices/${editingId}` : "/api/invoices";
+      const method = editingId ? "PUT" : "POST";
+
+      const payload = {
+        ...invoiceData,
+        eventType: invoiceData.event, // Map event -> eventType
+        invoiceDate: invoiceData.issueDate,
+        grandTotal: Number(invoiceData.amount) || 0,
+        amountPaid: Number(invoiceData.paid) || 0,
+        paymentStatus: invoiceData.status,
+        workflowStage: invoiceData.stage,
+        clientName: invoiceData.client,
+        eventDate: invoiceData.issueDate // Fallback for required field
+      };
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Failed to save invoice");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["invoices"]);
+      toast.success(editingId ? "Invoice updated" : "Invoice created");
+      setModalOpen(false);
+    },
+    onError: (err) => toast.error(err.message)
+  });
+
   function saveInvoice() {
-    if (!form.client.trim() || !form.invoiceNo.trim() || !form.amount) return;
-    const payload = {
-      ...form,
-      amount: Number(form.amount),
-      paid: Number(form.paid),
-    };
-    if (editingId) {
-      setInvoices((prev) => prev.map((inv) => (inv.id === editingId ? { ...inv, ...payload } : inv)));
-    } else {
-      const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `INV-${Date.now()}`;
-      setInvoices((prev) => [{ ...payload, id }, ...prev]);
+    if (!form.client.trim() || !form.invoiceNo.trim() || !form.amount) {
+      toast.error("Client, Invoice No, and Amount are required");
+      return;
     }
-    setModalOpen(false);
+    mutation.mutate(form);
   }
 
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, paymentStatus, amountPaid }) => {
+      const res = await fetch(`/api/invoices/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentStatus,
+          amountPaid // Update the amount paid when marking as Paid
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["invoices"]);
+      toast.success("Marked as Paid");
+    }
+  });
+
   function markAsPaid(id) {
-    setInvoices((prev) =>
-      prev.map((inv) => (inv.id === id ? { ...inv, status: "Paid", paid: Number(inv.amount) } : inv))
-    );
+    // Find the invoice to get its full amount
+    const inv = invoices.find(i => i.id === id);
+    if (!inv) return;
+    statusMutation.mutate({
+      id,
+      paymentStatus: "Paid",
+      amountPaid: inv.amount // Set paid amount to total amount
+    });
   }
 
   function formatCurrency(value) {
@@ -231,9 +316,8 @@ export default function AdminInvoices() {
             {filterOptions.map((option) => (
               <button
                 key={option}
-                className={`rounded-full border px-3 py-1 capitalize transition ${
-                  statusFilter === option ? "border-gold-500 bg-gold-50 text-gold-600" : "border-transparent bg-slate-100 text-slate-600"
-                }`}
+                className={`rounded-full border px-3 py-1 capitalize transition ${statusFilter === option ? "border-gold-500 bg-gold-50 text-gold-600" : "border-transparent bg-slate-100 text-slate-600"
+                  }`}
                 onClick={() => setStatusFilter(option)}
               >
                 {option === "all" ? "All" : option}
@@ -332,9 +416,8 @@ export default function AdminInvoices() {
                         <p className="text-xs text-slate-500">{invoice.stage}</p>
                       </div>
                       <span
-                        className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                          statusStyles[invoice.status] || "bg-slate-100 text-slate-600"
-                        }`}
+                        className={`rounded-full px-3 py-1 text-[11px] font-semibold ${statusStyles[invoice.status] || "bg-slate-100 text-slate-600"
+                          }`}
                       >
                         {isOverdue(invoice) ? "Overdue" : invoice.status}
                       </span>

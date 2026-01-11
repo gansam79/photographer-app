@@ -10,7 +10,7 @@ const quotationSchema = new mongoose.Schema(
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Client',
-      required: [true, 'Client is required'],
+      required: false, // Optional if just using clientName
     },
     eventType: {
       type: String,
@@ -105,9 +105,18 @@ const quotationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Draft', 'Sent', 'Accepted', 'Rejected'],
+      enum: ['Draft', 'Sent', 'Accepted', 'Rejected', 'Expired', 'Negotiation'],
       default: 'Draft',
     },
+    // Enhanced CRM Fields
+    clientName: { type: String, trim: true }, // Snapshot of client name
+    location: { type: String, trim: true },
+    retainerAmount: { type: Number, default: 0 },
+    stage: { type: String, default: 'Concept' },
+    deliverables: [{ type: String }], // Simple list of deliverables
+    moodboard: { type: String, trim: true },
+    channel: { type: String, enum: ['Email', 'WhatsApp', 'Call', 'Other'], default: 'Email' },
+    followUpDate: { type: Date },
     convertedToInvoice: {
       type: Boolean,
       default: false,
