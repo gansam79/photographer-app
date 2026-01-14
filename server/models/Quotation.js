@@ -135,4 +135,4 @@ quotationSchema.index({ clientId: 1 });
 quotationSchema.index({ status: 1 });
 quotationSchema.index({ eventDate: 1 });
 
-export default mongoose.model('Quotation', quotationSchema);
+export default mongoose.models.Quotation || mongoose.model('Quotation', quotationSchema);

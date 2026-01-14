@@ -38,4 +38,4 @@ const serviceSchema = new mongoose.Schema(
 // Index for active services
 serviceSchema.index({ isActive: 1 });
 
-export default mongoose.model('Service', serviceSchema);
+export default mongoose.models.Service || mongoose.model('Service', serviceSchema);
