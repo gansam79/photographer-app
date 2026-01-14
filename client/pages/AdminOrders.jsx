@@ -87,7 +87,15 @@ export default function AdminOrders() {
 
   function handleChange(e) {
     const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
+    setForm((f) => {
+      const updated = { ...f, [name]: value };
+      if (name === "amount" || name === "amount_paid") {
+        const total = parseFloat(updated.amount) || 0;
+        const paid = parseFloat(updated.amount_paid) || 0;
+        updated.remaining_amount = total - paid;
+      }
+      return updated;
+    });
   }
 
   async function saveOrder() {
@@ -134,9 +142,67 @@ export default function AdminOrders() {
     }
   }
 
+  // ... inside AdminOrders component ...
+  const [photographyTypes, setPhotographyTypes] = useState(() => {
+    const saved = localStorage.getItem("photographyTypes");
+    return saved ? JSON.parse(saved) : ["Wedding", "Pre-Wedding", "Baby Shower", "Birthday", "Corporate"];
+  });
+  const [serviceTypes, setServiceTypes] = useState(() => {
+    const saved = localStorage.getItem("serviceTypes");
+    return saved ? JSON.parse(saved) : ["Cinematic", "Candid", "Traditional", "Drone"];
+  });
+
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showServiceModal, setShowServiceModal] = useState(false);
+
+  const [newType, setNewType] = useState("");
+  const [newService, setNewService] = useState("");
+
+  function addNewType() {
+    if (!newType.trim()) return;
+    if (photographyTypes.includes(newType.trim())) {
+      alert("Type already exists");
+      return;
+    }
+    const updated = [...photographyTypes, newType.trim()];
+    setPhotographyTypes(updated);
+    localStorage.setItem("photographyTypes", JSON.stringify(updated));
+    setForm((f) => ({ ...f, photography_type: newType.trim() }));
+    setNewType("");
+    setShowTypeModal(false);
+  }
+
+  function addNewService() {
+    if (!newService.trim()) return;
+    if (serviceTypes.includes(newService.trim())) {
+      alert("Service already exists");
+      return;
+    }
+    const updated = [...serviceTypes, newService.trim()];
+    setServiceTypes(updated);
+    localStorage.setItem("serviceTypes", JSON.stringify(updated));
+    setNewService("");
+    setShowServiceModal(false);
+  }
+
+  function handleServiceChange(e) {
+    const { value, checked } = e.target;
+    // Current services as array
+    let current = form.service ? form.service.split(",").map(s => s.trim()).filter(Boolean) : [];
+
+    if (checked) {
+      if (!current.includes(value)) current.push(value);
+    } else {
+      current = current.filter(item => item !== value);
+    }
+
+    setForm(f => ({ ...f, service: current.join(", ") }));
+  }
+
   return (
     <section className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
+        {/* ... (keep existing header content) ... */}
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Production</p>
           <h1 className="text-3xl font-semibold text-charcoal-900 dark:text-white">Orders</h1>
@@ -154,6 +220,7 @@ export default function AdminOrders() {
         </button>
       </header>
 
+      {/* ... (keep existing summary cards and table) ... */}
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryCard label="Total" value={stats.total} accent="from-amber-100 to-white" />
         <SummaryCard label="In Progress" value={stats.inProgress} accent="from-blue-100 to-white" />
@@ -289,17 +356,29 @@ export default function AdminOrders() {
                 />
               </FormField>
               <FormField label="Photography Type" required>
-                <select
-                  name="photography_type"
-                  value={form.photography_type}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  <option value="">Choose type</option>
-                  <option value="Wedding">Wedding</option>
-                  <option value="Pre-Wedding">Pre-Wedding</option>
-                  <option value="Baby Shower">Baby Shower</option>
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    name="photography_type"
+                    value={form.photography_type}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                  >
+                    <option value="">Choose type</option>
+                    {photographyTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowTypeModal(true)}
+                    className="shrink-0 rounded-lg border border-gold-200 bg-gold-50 px-3 text-gold-600 hover:bg-gold-100"
+                    title="Add new type"
+                  >
+                    +
+                  </button>
+                </div>
               </FormField>
               <FormField label="Location" required>
                 <input
@@ -337,17 +416,29 @@ export default function AdminOrders() {
                 />
               </FormField>
               <FormField label="Service" required>
-                <select
-                  name="service"
-                  value={form.service}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  <option value="">Choose Service</option>
-                  <option value="Cinematic">Cinematic</option>
-                  <option value="Candid">Candid</option>
-                  <option value="Traditional">Traditional</option>
-                </select>
+                <div className="space-y-2 rounded-lg border border-slate-200 p-3">
+                  <div className="flex flex-wrap gap-3">
+                    {serviceTypes.map((svc) => (
+                      <label key={svc} className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          value={svc}
+                          checked={(form.service || "").split(", ").includes(svc)}
+                          onChange={handleServiceChange}
+                          className="h-4 w-4 rounded border-slate-300 text-gold-500 focus:ring-gold-500"
+                        />
+                        <span className="text-sm text-slate-700">{svc}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowServiceModal(true)}
+                    className="mt-2 text-xs font-semibold text-gold-600 hover:text-gold-700"
+                  >
+                    + Add New Service
+                  </button>
+                </div>
               </FormField>
               <FormField label="Album Pages" required>
                 <select
@@ -460,6 +551,76 @@ export default function AdminOrders() {
               </button>
               <button className="rounded-md bg-rose-500 px-4 py-2 text-sm font-semibold text-white" onClick={doDelete}>
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Type Modal */}
+      {showTypeModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-charcoal-900">Add New Type</h3>
+            <p className="mt-1 text-xs text-slate-500">Enter a new photography type to add to the list.</p>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-slate-700">Type Name</label>
+              <input
+                type="text"
+                value={newType}
+                onChange={(e) => setNewType(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                placeholder="e.g. Birthday, Corporate"
+                autoFocus
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                className="rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
+                onClick={() => setShowTypeModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600"
+                onClick={addNewType}
+              >
+                Add Type
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Service Modal */}
+      {showServiceModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-charcoal-900">Add New Service</h3>
+            <p className="mt-1 text-xs text-slate-500">Enter a new service name to add to the checklist.</p>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-slate-700">Service Name</label>
+              <input
+                type="text"
+                value={newService}
+                onChange={(e) => setNewService(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                placeholder="e.g. Drone, Live Streaming"
+                autoFocus
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                className="rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
+                onClick={() => setShowServiceModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600"
+                onClick={addNewService}
+              >
+                Add Service
               </button>
             </div>
           </div>
