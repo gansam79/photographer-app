@@ -77,8 +77,6 @@ export const createInvoice = async (req, res) => {
       clientName: nameToSearch,
       grandTotal: Number(amount) || Number(req.body.grandTotal) || 0,
       subtotal: Number(amount) || Number(req.body.grandTotal) || 0, // Ensure strictly numeric
-      // Force clientId if somehow missing (should be caught above, but safety net)
-      clientId: clientId || undefined,
       amountPaid: Number(paid) || Number(amountPaid) || 0,
       invoiceDate: validInvoiceDate,
       eventDate: req.body.eventDate || validInvoiceDate,
