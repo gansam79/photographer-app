@@ -7,7 +7,7 @@ import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -16,7 +16,6 @@ import Navigation from "./components/Navigation";
 import Quotations from "./pages/Quotations";
 import Invoices from "./pages/Invoices";
 import Clients from "./pages/Clients";
-import Dashboard from "./pages/Dashboard";
 import AdminOrders from "./pages/AdminOrders";
 import AdminGallery from "./pages/AdminGallery";
 import AdminUsers from "./pages/AdminUsers";
@@ -47,31 +46,40 @@ const App = () => (
 const AppShell = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const location = useLocation();
+  const isLoginRoute = location.pathname === "/" || location.pathname === "/login";
 
   useEffect(() => {
     setMobileNavOpen(false);
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <Navigation isMobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-      <div className="flex min-h-screen flex-1 flex-col">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm lg:hidden">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-charcoal-900"
-            onClick={() => setMobileNavOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-            Menu
-          </button>
-          <span className="text-sm font-semibold text-charcoal-900">Studio Console</span>
-        </div>
-        <main className="flex-1 px-4 pb-10 pt-6 sm:px-6 lg:px-10">
+    <div className={isLoginRoute ? "min-h-screen bg-slate-50" : "flex min-h-screen bg-slate-50"}>
+      {!isLoginRoute && <Navigation isMobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />}
+      <div className={isLoginRoute ? "w-full" : "flex min-h-screen flex-1 flex-col"}>
+        {!isLoginRoute && (
+          <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm lg:hidden">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-charcoal-900"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+              Menu
+            </button>
+            <span className="text-sm font-semibold text-charcoal-900">Studio Console</span>
+          </div>
+        )}
+        <main
+          className={
+            isLoginRoute
+              ? "flex min-h-screen items-center justify-center px-4 py-10"
+              : "flex-1 px-4 pb-10 pt-6 sm:px-6 lg:px-10"
+          }
+        >
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Login />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/dashboard" element={<Index />} />
             <Route path="/quotations" element={<Quotations />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/clients" element={<Clients />} />

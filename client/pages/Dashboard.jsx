@@ -1,503 +1,366 @@
-import { useState, useEffect, useMemo } from "react";
-import {
-  FileText,
-  CreditCard,
-  Users,
-  TrendingUp,
-  PlusCircle,
-  Calendar,
-  Camera,
-  ShieldCheck,
-  Clock,
-  MapPin,
-  AlertTriangle,
-} from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+const heroStats = [
+  { label: "Total", value: 142, helper: "Couples tracked", accent: "from-[#fff5dc]" },
+  { label: "Active", value: 32, helper: "Shoots on floor", accent: "from-[#e9f9f0]" },
+  { label: "Leads", value: 18, helper: "Warm inquiries", accent: "from-[#e8f0ff]" },
+  { label: "Pipeline", value: "₹4.3L", helper: "Quoted value", accent: "from-[#ffedf0]" },
+];
+
+const upcomingShoots = [
+  { id: "1", event: "Rahul × Sneha Wedding", date: "12 Feb", city: "Pune", scope: "Cinematic + docu", status: "Crew locked" },
+  { id: "2", event: "Aditi & Neel Engagement", date: "09 Mar", city: "Mumbai", scope: "Sunrise + beach", status: "Moodboard shared" },
+  { id: "3", event: "Studio Samarth Lookbook", date: "30 Jan", city: "Mumbai", scope: "Commercial", status: "Lighting dry run" },
+];
+
+const financePulse = [
+  { label: "Collected", value: "₹12.4L", detail: "82% of billed", accent: "from-emerald-50" },
+  { label: "Outstanding", value: "₹2.1L", detail: "3 files overdue", accent: "from-rose-50" },
+  { label: "Pipeline", value: "₹4.3L", detail: "In negotiations", accent: "from-amber-50" },
+];
+
+const actionQueue = [
+  { id: "a1", title: "Share teaser with Ishaan", detail: "Pre-wed selects due tonight", due: "Today", type: "Deliverable" },
+  { id: "a2", title: "Confirm crew for Kolhapur", detail: "Pack 2× FX3 + gimbal", due: "Tomorrow", type: "Logistics" },
+  { id: "a3", title: "Follow up invoice INV-24010", detail: "₹58K balance", due: "Monday", type: "Finance" },
+];
+
+const signalTiles = [
+  { label: "Quotations", value: "12 active", helper: "4 in negotiation" },
+  { label: "Invoices", value: "18 sent", helper: "3 awaiting payout" },
+  { label: "Gallery", value: "5 live", helper: "2 drafts in QC" },
+  { label: "Team", value: "8 admins", helper: "MFA enforced" },
+];
+
+const quickSlices = [
+  { label: "All Workflows", count: 28 },
+  { label: "Weddings", count: 12 },
+  { label: "Commercial", count: 8 },
+  { label: "Editorial", count: 4 },
+];
+
+const dayTimeline = [
+  { time: "08:30", title: "Crew standup", detail: "Lighting matrix review", state: "live" },
+  { time: "10:15", title: "Client handoff", detail: "Aditi & Neel selects", state: "due" },
+  { time: "14:00", title: "Finance sync", detail: "Invoice batching", state: "next" },
+  { time: "18:30", title: "Gallery export", detail: "Studio Samarth", state: "queued" },
+];
+
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    totalBilled: 0,
-    totalReceived: 0,
-    pendingPayments: 0,
-    quotationsSent: 0,
-    totalClients: 0,
-  });
-  const [recentQuotations, setRecentQuotations] = useState([]);
-  const [recentInvoices, setRecentInvoices] = useState([]);
-  const [upcomingShoots, setUpcomingShoots] = useState([]);
-  const [pipelineStages, setPipelineStages] = useState([]);
-  const [taskQueue, setTaskQueue] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [exampleFromServer, setExampleFromServer] = useState("");
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchDemo();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDemo = async () => {
     try {
-      const [quotationsRes, invoicesRes, clientsRes, ordersRes] = await Promise.all([
-        fetch("/api/quotations"),
-        fetch("/api/invoices"),
-        fetch("/api/clients"),
-        fetch("/api/orders"),
-      ]);
-
-      const quotations = await quotationsRes.json();
-      const invoices = await invoicesRes.json();
-      const clients = await clientsRes.json();
-      const orders = await ordersRes.json();
-
-      // Calculate totals
-      const totalBilled = invoices.reduce(
-        (sum, inv) => sum + Number(inv.grandTotal ?? inv.total ?? 0),
-        0,
-      );
-
-      // Calculate total received
-      let totalReceived = 0;
-      let pendingPayments = 0;
-
-      for (const invoice of invoices) {
-        const paymentsRes = await fetch(
-          `/api/invoices/${invoice._id}/payments`,
-        );
-        const payments = await paymentsRes.json();
-        const amountPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        const invoiceTotal = Number(invoice.grandTotal ?? invoice.total ?? 0);
-        totalReceived += amountPaid;
-        pendingPayments += Math.max(0, invoiceTotal - amountPaid);
-      }
-
-      setStats({
-        totalBilled,
-        totalReceived,
-        pendingPayments,
-        quotationsSent: quotations.length,
-        totalClients: clients.length,
-      });
-
-      setRecentQuotations(quotations.slice(0, 4));
-      setRecentInvoices(invoices.slice(0, 4));
-
-      const totalQuotes = quotations.length || 1;
-      const pipeline = [
-        { key: "Draft", label: "Draft previews" },
-        { key: "Sent", label: "Sent decks" },
-        { key: "Negotiation", label: "Live negotiations" },
-        { key: "Accepted", label: "Won gigs" },
-      ].map((stage) => {
-        const count = quotations.filter((q) => (q.status || "Draft") === stage.key).length;
-        return {
-          ...stage,
-          count,
-          percent: Math.round((count / totalQuotes) * 100),
-        };
-      });
-      setPipelineStages(pipeline);
-
-      const upcoming = Array.isArray(orders)
-        ? orders
-            .filter((order) => order.event_date)
-            .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
-            .slice(0, 4)
-        : [];
-      setUpcomingShoots(upcoming);
-
-      const invoiceTasks = invoices
-        .filter((inv) => (inv.status || "").toLowerCase() !== "paid")
-        .map((inv) => {
-          const total = Number(inv.grandTotal ?? inv.total ?? 0);
-          const paid = Number(inv.amountPaid ?? inv.amount_paid ?? 0);
-          const pending = Math.max(total - paid, 0);
-          return {
-            id: `inv-${inv._id}`,
-            title: inv.clientName ? `Collect from ${inv.clientName}` : "Invoice collection",
-            detail: `${formatCurrency(pending)} pending`,
-            due: inv.dueDate || inv.event_date,
-            type: "Billing",
-          };
-        });
-
-      const quoteTasks = quotations
-        .filter((quote) => (quote.status || "").toLowerCase() === "negotiation")
-        .map((quote) => ({
-          id: `quote-${quote._id}`,
-          title: quote.clientName ? `Follow up ${quote.clientName}` : "Negotiation touchpoint",
-          detail: quote.eventType || quote.event || "Event pending",
-          due: quote.followUpDate || quote.follow_up || quote.updatedAt,
-          type: "Pitch",
-        }));
-
-      const tasks = [...invoiceTasks, ...quoteTasks].slice(0, 5);
-      setTaskQueue(tasks);
+      const response = await fetch("/api/demo");
+      const data = await response.json();
+      setExampleFromServer(data.message);
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching hello:", error);
     }
   };
 
-  const utilization = useMemo(() => {
-    const billed = stats.totalBilled || 0;
-    const received = stats.totalReceived || 0;
-    const pending = stats.pendingPayments || 0;
-    const collectionRate = billed ? Math.round((received / billed) * 100) : 0;
-    const outstandingRate = billed ? Math.round((pending / billed) * 100) : 0;
-    const avgInvoice = stats.quotationsSent ? Math.round(billed / Math.max(stats.quotationsSent, 1)) : billed;
-    return { collectionRate, outstandingRate, avgInvoice };
-  }, [stats]);
-
-  const quickActions = [
-    {
-      label: "New Quotation",
-      description: "Spin up a styled offer deck",
-      to: "/admin/quotations",
-      icon: FileText,
-    },
-    {
-      label: "Invoice Client",
-      description: "Bill retainers or balance",
-      to: "/admin/invoices",
-      icon: CreditCard,
-    },
-    {
-      label: "Book Crew",
-      description: "Lock in shooters + gear",
-      to: "/admin/orders",
-      icon: Camera,
-    },
-    {
-      label: "Block Calendar",
-      description: "Reserve dates + venues",
-      to: "/admin/orders",
-      icon: Calendar,
-    },
-  ];
-
-  const safeguardHighlights = [
-    { title: "MFA enabled", detail: "13 of 15 admins", icon: ShieldCheck },
-    { title: "Reminders", detail: "8 payouts this week", icon: CreditCard },
-  ];
-
   return (
-    <section className="page-shell space-y-6">
-      <header className="rounded-3xl bg-gradient-to-br from-charcoal-900 via-charcoal-800 to-charcoal-900 p-6 text-white">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-white/60">Studio Pulse</p>
-            <h1 className="mt-2 text-3xl font-semibold">Dashboard</h1>
-            <p className="mt-2 text-sm text-white/70">
-              Bookings, billing, and client health indicators curated for your photography studio.
-            </p>
-          </div>
-          <Link
-            to="/admin/quotations"
-            className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow"
-          >
-            <PlusCircle className="h-4 w-4" />
-            Compose Quotation
-          </Link>
-        </div>
-        <div className="mt-6 grid gap-6 md:grid-cols-3">
-          <HeroMetric label="Collection rate" value={`${utilization.collectionRate}%`} trend="vs last month" positive />
-          <HeroMetric label="Outstanding" value={`${utilization.outstandingRate}%`} trend="needs follow-up" />
-          <HeroMetric label="Avg. invoice" value={formatCurrency(utilization.avgInvoice)} trend="per confirmed gig" positive />
-        </div>
-      </header>
-
-      {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
-          Syncing your studio insights...
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <KpiCard icon={TrendingUp} label="Total billed" value={stats.totalBilled} />
-            <KpiCard icon={CreditCard} label="Collected" value={stats.totalReceived} trend={utilization.collectionRate} />
-            <KpiCard icon={FileText} label="Pending" value={stats.pendingPayments} negative trend={utilization.outstandingRate} />
-            <KpiCard icon={Users} label="Active clients" value={stats.totalClients} raw />
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-charcoal-900">Quick Actions</h2>
-                  <p className="text-xs text-slate-500">Accelerate the next booking flow.</p>
-                </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{quickActions.length}</span>
-              </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {quickActions.map((action) => (
-                  <QuickActionCard key={action.label} {...action} />
-                ))}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-charcoal-900">Safeguards</h2>
-              <p className="text-xs text-slate-500">Keep payouts and galleries secure.</p>
-              <div className="mt-4 space-y-3">
-                {safeguardHighlights.map((item) => (
-                  <div key={item.title} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
-                    <item.icon className="h-10 w-10 rounded-xl bg-slate-50 p-2 text-charcoal-900" />
-                    <div>
-                      <p className="text-sm font-semibold text-charcoal-900">{item.title}</p>
-                      <p className="text-xs text-slate-500">{item.detail}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-6 xl:grid-cols-[2fr,1fr]">
-            <PipelinePanel stages={pipelineStages} />
-            <UpcomingShootsPanel shoots={upcomingShoots} />
-          </div>
-
-          <TaskPanel tasks={taskQueue} />
-
-          <div className="grid gap-6 xl:grid-cols-[2fr,1fr]">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-charcoal-900">Recent Invoices</h2>
-                <Link to="/admin/invoices" className="text-xs font-semibold text-gold-600">
-                  View all
-                </Link>
-              </div>
-              {recentInvoices.length === 0 ? (
-                <EmptyState message="No invoices yet. Bill your first client." />
-              ) : (
-                <ul className="mt-4 divide-y divide-slate-100">
-                  {recentInvoices.map((invoice) => (
-                    <li key={invoice._id} className="py-3">
-                      <div className="flex items-center justify-between text-sm text-charcoal-900">
-                        <div>
-                          <p className="font-semibold">{invoice.invoiceNumber || invoice.reference || invoice._id?.slice(-6) || "Invoice"}</p>
-                          <p className="text-xs text-slate-500">{invoice.clientName || invoice.client?.name || "Client"}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">{formatCurrency(invoice.grandTotal || invoice.total || 0)}</p>
-                          <p className="text-xs text-slate-500">{invoice.status || "Draft"}</p>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-charcoal-900">Recent Quotations</h2>
-                <Link to="/admin/quotations" className="text-xs font-semibold text-gold-600">
-                  View all
-                </Link>
-              </div>
-              {recentQuotations.length === 0 ? (
-                <EmptyState message="No quotes sent. Share a styled offer." />
-              ) : (
-                <ul className="mt-4 space-y-3 text-sm text-charcoal-900">
-                  {recentQuotations.map((quote) => (
-                    <li key={quote._id} className="rounded-xl border border-slate-100 p-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold">{quote.quoteNumber || quote.reference || quote._id?.slice(-6) || "Quote"}</p>
-                          <p className="text-xs text-slate-500">{quote.clientName || quote.client || "Client"}</p>
-                        </div>
-                        <span className="text-xs font-semibold text-slate-500">{quote.status || "Draft"}</span>
-                      </div>
-                      <p className="mt-2 text-xs text-slate-500">{quote.eventType || quote.event || "Event"}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-    </section>
-  );
-}
-
-function PipelinePanel({ stages = [] }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-charcoal-900">Pipeline Health</h2>
-          <p className="text-xs text-slate-500">Track quoting momentum at a glance.</p>
-        </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-          {stages.reduce((sum, stage) => sum + stage.count, 0)} files
-        </span>
-      </div>
-      {stages.length === 0 ? (
-        <EmptyState message="No quotes yet." />
-      ) : (
-        <div className="mt-4 space-y-4">
-          {stages.map((stage) => (
-            <StageMeter key={stage.key} stage={stage} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StageMeter({ stage }) {
-  const colors = {
-    Draft: "bg-slate-400",
-    Sent: "bg-indigo-400",
-    Negotiation: "bg-amber-500",
-    Accepted: "bg-emerald-500",
-  };
-  return (
-    <div>
-      <div className="flex items-center justify-between text-sm text-charcoal-900">
-        <p className="font-semibold">{stage.label}</p>
-        <span>{stage.count} • {stage.percent}%</span>
-      </div>
-      <div className="mt-2 h-2 rounded-full bg-slate-100">
-        <div className={`h-full rounded-full ${colors[stage.key] || "bg-charcoal-900"}`} style={{ width: `${stage.percent}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function UpcomingShootsPanel({ shoots = [] }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-charcoal-900">Upcoming Shoots</h2>
-          <p className="text-xs text-slate-500">Crew + logistics checklist.</p>
-        </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{shoots.length}</span>
-      </div>
-      {shoots.length === 0 ? (
-        <EmptyState message="No shoots scheduled." />
-      ) : (
-        <ul className="mt-4 space-y-3 text-sm text-charcoal-900">
-          {shoots.map((shoot) => (
-            <li key={shoot._id || shoot.id} className="rounded-xl border border-slate-100 p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">{shoot.event_name || shoot.event || "Shoot"}</p>
-                  <p className="text-xs text-slate-500">{shoot.name || shoot.client || "Client"}</p>
-                </div>
-                <div className="text-right text-xs text-slate-500">
-                  <p>{formatDateShort(shoot.event_date)}</p>
-                  <p>{shoot.start_time || shoot.startTime || "--"}</p>
-                </div>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
-                <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{shoot.location || "TBD"}</span>
-                <span className="inline-flex items-center gap-1"><Camera className="h-3.5 w-3.5" />{shoot.photography_type || shoot.service || "Package"}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function TaskPanel({ tasks = [] }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-charcoal-900">Action Queue</h2>
-          <p className="text-xs text-slate-500">Follow-ups auto generated from billing & pitches.</p>
-        </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{tasks.length}</span>
-      </div>
-      {tasks.length === 0 ? (
-        <EmptyState message="All tasks cleared. Enjoy the calm." />
-      ) : (
-        <ul className="mt-4 space-y-3 text-sm text-charcoal-900">
-          {tasks.map((task) => (
-            <li key={task.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-3">
-              <div>
-                <p className="font-semibold">{task.title}</p>
-                <p className="text-xs text-slate-500">{task.detail}</p>
-              </div>
-              <div className="text-right text-xs text-slate-500">
-                <p className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDateShort(task.due)}</p>
-                <p className="inline-flex items-center gap-1 text-rose-500">
-                  <AlertTriangle className="h-3.5 w-3.5" />{task.type}
+    <div className="relative min-h-screen overflow-hidden bg-slate-50 text-charcoal-900">
+      <div className="pointer-events-none absolute inset-x-0 -top-20 mx-auto h-[420px] w-[720px] rounded-full bg-gradient-to-r from-rose-200/30 via-amber-100/20 to-emerald-200/30 blur-3xl" />
+      <section className="page-shell relative z-10 space-y-6">
+        <header className="rounded-4xl border border-[#e6eaf2] bg-gradient-to-br from-white via-[#fdfefe] to-[#f5f7fb] p-6 text-charcoal-900 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
+          <div className="flex flex-wrap gap-8">
+            <div className="max-w-2xl space-y-4">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Studio Command</p>
+              <h1 className="text-4xl font-semibold leading-tight text-charcoal-900">Lumina Collective Ops Center</h1>
+              <p className="text-sm text-slate-600">
+                Orchestrate shoots, finance, and post workflows from a single cockpit. Mirrors the tonal system from profile & admin onboarding screens for a unified feel.
+              </p>
+              {exampleFromServer && (
+                <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+                  Live server ping: {exampleFromServer}
                 </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {quickSlices.map((slice) => (
+                  <QuickFilter key={slice.label} {...slice} />
+                ))}
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
+            </div>
+            <div className="flex-1 min-w-[260px] space-y-4">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Next Milestone</p>
+                <p className="mt-2 text-xl font-semibold text-charcoal-900">Rahul × Sneha pheras</p>
+                <p className="text-sm text-slate-600">Crew call 05:00 IST • Pune</p>
+                <button className="mt-4 w-full rounded-xl bg-[#d39a6f] py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#c7885b]">
+                  Compose New Quotation
+                </button>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600">
+                <p className="font-semibold text-charcoal-900">Health Snapshot</p>
+                <p>82% invoices cleared • 4 briefs awaiting rates • 2 galleries exporting</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {heroStats.map((item) => (
+              <HeroStat key={item.label} {...item} />
+            ))}
+          </div>
+        </header>
+
+        <div className="grid gap-6 lg:grid-cols-[1.7fr,1fr]">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-charcoal-900">Upcoming Shoots</h2>
+                <p className="text-xs text-slate-500">Logistics, scope, and readiness trackers.</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{upcomingShoots.length} scheduled</span>
+            </div>
+            <div className="mt-6 space-y-4">
+              {upcomingShoots.map((shoot) => (
+                <UpcomingCard key={shoot.id} {...shoot} />
+              ))}
+            </div>
+          </section>
+
+          <aside className="space-y-4">
+            {financePulse.map((pulse) => (
+              <FinanceCard key={pulse.label} {...pulse} />
+            ))}
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-lg shadow-slate-200/60">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Ops note</p>
+              <p className="mt-2 text-charcoal-900">Kolhapur crew ETA confirmed • Swap gimbal battery packs.</p>
+            </div>
+          </aside>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-charcoal-900">Action Queue</h2>
+                <p className="text-xs text-slate-500">Generated from finance + production signals.</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{actionQueue.length} tasks</span>
+            </div>
+            <div className="mt-6 space-y-4">
+              {actionQueue.map((task) => (
+                <ActionCard key={task.id} {...task} />
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-charcoal-900">Studio Signals</h2>
+                <p className="text-xs text-slate-500">Mirrors the admin/profile tonal palette.</p>
+              </div>
+              <button className="text-xs font-semibold text-gold-600">Share pulse</button>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {signalTiles.map((tile) => (
+                <SignalCard key={tile.label} {...tile} />
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-3">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+            <h2 className="text-lg font-semibold text-charcoal-900">Crew Capacity</h2>
+            <p className="text-xs text-slate-500">Match admin register vibes with soft badges.</p>
+            <div className="mt-5 grid gap-3 text-sm text-charcoal-900">
+              <CapacityBadge label="Lead shooters" value="4 / 5" helper="One slot open" />
+              <CapacityBadge label="Editors" value="6 / 6" helper="All assigned" />
+              <CapacityBadge label="Drone pilots" value="2 / 3" helper="Need backup" />
+            </div>
+          </section>
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+            <h2 className="text-lg font-semibold text-charcoal-900">Finance Snapshot</h2>
+            <dl className="mt-4 space-y-3 text-sm text-slate-600">
+              <SignalRow label="Payables" value="₹1.4L" helper="Due this week" />
+              <SignalRow label="Receivables" value="₹2.1L" helper="3 files follow-up" />
+              <SignalRow label="Avg collection" value="5.2 days" helper="Down 1.3 days WoW" />
+            </dl>
+          </section>
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+            <h2 className="text-lg font-semibold text-charcoal-900">Integrations</h2>
+            <p className="text-xs text-slate-500">Keeps parity with profile cards.</p>
+            <ul className="mt-5 space-y-3 text-sm text-charcoal-900">
+              <li className="flex items-center justify-between rounded-2xl border border-slate-100 px-4 py-3">
+                <span>Google Drive ingest</span>
+                <span className="text-xs text-emerald-600">Synced 2 hrs ago</span>
+              </li>
+              <li className="flex items-center justify-between rounded-2xl border border-slate-100 px-4 py-3">
+                <span>Slack alerts</span>
+                <span className="text-xs text-amber-600">Muted till 9am</span>
+              </li>
+              <li className="flex items-center justify-between rounded-2xl border border-slate-100 px-4 py-3">
+                <span>Notion shotlists</span>
+                <span className="text-xs text-slate-500">Manual refresh</span>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1.2fr,1fr]">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-charcoal-900">Today Timeline</h2>
+                <p className="text-xs text-slate-500">In sync with profile’s activity language.</p>
+              </div>
+              <button className="text-xs font-semibold text-slate-600">Export agenda</button>
+            </div>
+            <div className="mt-6 space-y-4">
+              {dayTimeline.map((entry) => (
+                <TimelineItem key={entry.time} {...entry} />
+              ))}
+            </div>
+          </section>
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+            <h2 className="text-lg font-semibold text-charcoal-900">Spotlight Stories</h2>
+            <p className="text-xs text-slate-500">Keeps hero energy flowing into gallery teasers.</p>
+            <div className="mt-5 grid gap-4">
+              <SpotlightCard title="Aditi × Neel" detail="Sunrise engagement | Mumbai" status="Gallery drafting" />
+              <SpotlightCard title="Studio Samarth" detail="Lookbook | Commercial" status="In color grade" />
+              <SpotlightCard title="Kavya × Ohm" detail="Reception | Goa" status="Awaiting approvals" />
+            </div>
+          </section>
+        </div>
+      </section>
     </div>
   );
 }
 
-function KpiCard({ icon: Icon, label, value, trend, negative, raw }) {
-  const numeric = typeof value === "number" ? value : 0;
-  const formatted = raw ? numeric.toLocaleString() : formatCurrency(numeric);
+function HeroStat({ label, value, helper, accent = "from-slate-50" }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className={`rounded-3xl border border-slate-100 bg-gradient-to-br ${accent} to-white p-4 shadow-[0_15px_40px_rgba(15,23,42,0.06)]`}>
+      <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-semibold text-charcoal-900">{value}</p>
+      <p className="text-xs text-slate-500">{helper}</p>
+    </div>
+  );
+}
+
+function UpcomingCard({ event, scope, date, city, status }) {
+  return (
+    <article className="rounded-2xl border border-slate-100 p-4 shadow-[0_10px_40px_rgba(15,23,42,0.04)]">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{label}</p>
-          <p className="mt-2 text-2xl font-semibold text-charcoal-900">{formatted}</p>
+          <p className="text-sm font-semibold text-charcoal-900">{event}</p>
+          <p className="text-xs text-slate-500">{scope}</p>
         </div>
-        <div className="h-12 w-12 rounded-xl bg-slate-50 text-charcoal-900 flex items-center justify-center">
-          <Icon className="h-6 w-6" />
+        <div className="text-right text-xs text-slate-500">
+          <p>{date}</p>
+          <p>{city}</p>
         </div>
       </div>
-      {typeof trend === "number" && (
-        <p className={`mt-3 text-xs font-semibold ${negative ? "text-rose-500" : "text-emerald-600"}`}>
-          {negative ? "▼" : "▲"} {trend}% vs last cycle
-        </p>
-      )}
+      <p className="mt-3 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">{status}</p>
+    </article>
+  );
+}
+
+function FinanceCard({ label, value, detail, accent }) {
+  return (
+    <div className={`rounded-3xl border border-slate-100 bg-gradient-to-br ${accent} to-white p-5 shadow-sm`}>
+      <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-charcoal-900">{value}</p>
+      <p className="text-xs text-slate-500">{detail}</p>
     </div>
   );
 }
 
-function QuickActionCard({ label, description, to, icon: Icon }) {
+function ActionCard({ title, detail, due, type }) {
   return (
-    <Link to={to} className="flex items-start gap-3 rounded-2xl border border-slate-100 p-4 transition hover:border-gold-200">
-      <Icon className="h-10 w-10 rounded-xl bg-slate-50 p-2 text-charcoal-900" />
+    <article className="flex items-start justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+      <div>
+        <p className="text-sm font-semibold text-charcoal-900">{title}</p>
+        <p className="text-xs text-slate-500">{detail}</p>
+      </div>
+      <div className="text-right text-xs">
+        <p className="font-semibold text-slate-600">{due}</p>
+        <p className="text-rose-500">{type}</p>
+      </div>
+    </article>
+  );
+}
+
+function SignalCard({ label, value, helper }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+      <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-semibold text-charcoal-900">{value}</p>
+      <p className="text-xs text-slate-500">{helper}</p>
+    </div>
+  );
+}
+
+function SignalRow({ label, value, helper }) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
       <div>
         <p className="font-semibold text-charcoal-900">{label}</p>
-        <p className="text-xs text-slate-500">{description}</p>
+        <p className="text-xs text-slate-500">{helper}</p>
       </div>
-    </Link>
-  );
-}
-
-function HeroMetric({ label, value, trend, positive }) {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-[0.35em] text-white/60">{label}</p>
-      <p className="mt-2 text-3xl font-semibold">{value}</p>
-      <p className={`text-xs ${positive ? "text-emerald-300" : "text-rose-200"}`}>{trend}</p>
+      <p className="text-sm font-semibold text-charcoal-900">{value}</p>
     </div>
   );
 }
 
-function EmptyState({ message }) {
-  return <p className="py-6 text-center text-xs text-slate-500">{message}</p>;
+function CapacityBadge({ label, value, helper }) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+      <div>
+        <p className="font-semibold text-charcoal-900">{label}</p>
+        <p className="text-xs text-slate-500">{helper}</p>
+      </div>
+      <p className="text-sm font-semibold text-charcoal-900">{value}</p>
+    </div>
+  );
 }
 
-function formatDateShort(dateStr) {
-  if (!dateStr) return "--";
-  return new Intl.DateTimeFormat("en-IN", {
-    month: "short",
-    day: "2-digit",
-  }).format(new Date(dateStr));
+function QuickFilter({ label, count }) {
+  return (
+    <button className="rounded-full border border-slate-200 bg-white/90 px-4 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-amber-200 hover:text-amber-600">
+      {label}
+      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-600">{count}</span>
+    </button>
+  );
 }
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+function TimelineItem({ time, title, detail, state }) {
+  const badgeMap = {
+    live: "bg-emerald-50 text-emerald-600",
+    due: "bg-amber-50 text-amber-600",
+    next: "bg-slate-100 text-slate-600",
+    queued: "bg-slate-100 text-slate-600",
+  };
+  return (
+    <div className="flex items-start gap-4">
+      <div className="text-xs font-semibold text-slate-500">{time}</div>
+      <div className="flex-1 rounded-2xl border border-slate-100 px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-charcoal-900">{title}</p>
+          <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${badgeMap[state] || "bg-slate-100 text-slate-600"}`}>
+            {state}
+          </span>
+        </div>
+        <p className="text-xs text-slate-500">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function SpotlightCard({ title, detail, status }) {
+  return (
+    <article className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+      <p className="text-sm font-semibold text-charcoal-900">{title}</p>
+      <p className="text-xs text-slate-500">{detail}</p>
+      <p className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-gold-600">{status}</p>
+    </article>
+  );
 }
