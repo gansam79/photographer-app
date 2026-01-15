@@ -331,7 +331,7 @@ export default function AdminOrders() {
                 <th className="px-4 py-3 text-left font-semibold">Date</th>
                 <th className="px-4 py-3 text-left font-semibold">Location</th>
                 <th className="px-4 py-3 text-left font-semibold">Amount</th>
-                <th className="px-4 py-3 text-left font-semibold">Paid</th>
+                <th className="px-4 py-3 text-left font-semibold">Remaining</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 <th className="px-4 py-3 text-right font-semibold">Actions</th>
               </tr>
@@ -350,48 +350,54 @@ export default function AdminOrders() {
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
-                  <tr key={order._id} className="odd:bg-white even:bg-slate-50">
-                    <td className="px-4 py-3 font-semibold text-charcoal-900">{order.name || order.customerName}</td>
-                    <td className="px-4 py-3 text-slate-600">{order.whatsapp_no || order.customerPhone || "-"}</td>
-                    <td className="px-4 py-3">{order.event_name || "-"}</td>
-                    <td className="px-4 py-3">{order.photography_type || order.photographyType || order.service || "-"}</td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {order.event_date
-                        ? new Date(order.event_date).toLocaleDateString()
-                        : order.date ? new Date(order.date).toLocaleDateString() : "--"
-                      }
-                    </td>
-                    <td className="px-4 py-3">{order.location || "-"}</td>
-                    <td className="px-4 py-3 font-medium text-charcoal-900">
-                      {order.amount?.toLocaleString ? `₹${order.amount.toLocaleString()}` : order.amount}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {order.amount_paid?.toLocaleString ? `₹${order.amount_paid.toLocaleString()}` : (order.paidAmount ? `₹${order.paidAmount.toLocaleString()}` : "-")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClass(order.order_status || order.status)}`}>
-                        {order.order_status || order.status || "Pending"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex gap-2">
-                        <button
-                          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                          onClick={() => openEdit(order)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="rounded-md border border-rose-100 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                          onClick={() => confirmDelete(order)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                orders.map((order) => {
+                  const total = parseFloat(order.amount) || 0;
+                  const paid = parseFloat(order.amount_paid) || parseFloat(order.paidAmount) || 0;
+                  const remaining = total - paid;
+
+                  return (
+                    <tr key={order._id} className="odd:bg-white even:bg-slate-50">
+                      <td className="px-4 py-3 font-semibold text-charcoal-900">{order.name || order.customerName}</td>
+                      <td className="px-4 py-3 text-slate-600">{order.whatsapp_no || order.customerPhone || "-"}</td>
+                      <td className="px-4 py-3">{order.event_name || "-"}</td>
+                      <td className="px-4 py-3">{order.photography_type || order.photographyType || order.service || "-"}</td>
+                      <td className="px-4 py-3 text-slate-500">
+                        {order.event_date
+                          ? new Date(order.event_date).toLocaleDateString()
+                          : order.date ? new Date(order.date).toLocaleDateString() : "--"
+                        }
+                      </td>
+                      <td className="px-4 py-3">{order.location || "-"}</td>
+                      <td className="px-4 py-3 font-medium text-charcoal-900">
+                        {order.amount?.toLocaleString ? `₹${order.amount.toLocaleString()}` : order.amount}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {remaining > 0 ? `₹${remaining.toLocaleString()}` : "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClass(order.order_status || order.status)}`}>
+                          {order.order_status || order.status || "Pending"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex gap-2">
+                          <button
+                            className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            onClick={() => openEdit(order)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="rounded-md border border-rose-100 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                            onClick={() => confirmDelete(order)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
