@@ -1,331 +1,226 @@
-import React, { useMemo, useState } from "react";
-
-const emptyForm = {
-  id: null,
-  name: "",
-  email: "",
-  whatsapp: "",
-  role: "Admin",
-  permission: "Full Access",
-  blocked: false,
-};
-
-const seedUsers = [
-  {
-    id: "1",
-    name: "Akanksha Patil",
-    email: "akanksha@studio.com",
-    whatsapp: "9876543210",
-    role: "Admin",
-    permission: "Full Access",
-    blocked: false,
-    createdAt: "2025-11-02",
-  },
-  {
-    id: "2",
-    name: "Ganesh Shinde",
-    email: "ganesh@studio.com",
-    whatsapp: "9123456780",
-    role: "Editor",
-    permission: "Quotations + Orders",
-    blocked: false,
-    createdAt: "2025-10-15",
-  },
-  {
-    id: "3",
-    name: "Sakshi Kamat",
-    email: "sakshi@studio.com",
-    whatsapp: "9988776655",
-    role: "Viewer",
-    permission: "Read Only",
-    blocked: true,
-    createdAt: "2025-09-25",
-  },
-];
-
-const roles = ["Admin", "Editor", "Viewer", "Contributor"];
-const permissionPresets = ["Full Access", "Quotations + Orders", "Billing Only", "Read Only"];
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState(seedUsers);
-  const [form, setForm] = useState(emptyForm);
+  const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [blockTarget, setBlockTarget] = useState(null);
+  const [form, setForm] = useState({ id: null, name: "", email: "", phone: "", role: "user", status: "Active", password: "" });
+  const [deleteId, setDeleteId] = useState(null);
 
-  const activeUsers = useMemo(() => users.filter((u) => !u.blocked).length, [users]);
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users");
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
+    },
+  });
 
-  const openModal = (user = null) => {
-    setForm(user ? user : emptyForm);
-    setModalOpen(true);
-  };
+  const mutation = useMutation({
+    mutationFn: async (data) => {
+      const url = data.id ? `/api/users/${data.id}` : "/api/users";
+      const method = data.id ? "PUT" : "POST";
+      const { id, ...body } = data;
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to save user");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success(form.id ? "User updated" : "User created");
+      setModalOpen(false);
+      setForm({ id: null, name: "", email: "", phone: "", role: "user", status: "Active", password: "" });
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
-  const closeModal = () => {
-    setModalOpen(false);
-    setForm(emptyForm);
-  };
-
-  const saveUser = () => {
-    if (!form.name.trim() || !form.email.trim()) return;
-    if (form.id) {
-      setUsers((prev) => prev.map((u) => (u.id === form.id ? { ...u, ...form } : u)));
-    } else {
-      setUsers((prev) => [
-        {
-          ...form,
-          id: crypto.randomUUID(),
-          createdAt: new Date().toISOString().slice(0, 10),
-        },
-        ...prev,
-      ]);
-    }
-    closeModal();
-  };
-
-  const confirmDelete = () => {
-    setUsers((prev) => prev.filter((u) => u.id !== deleteTarget));
-    setDeleteTarget(null);
-  };
-
-  const toggleBlock = () => {
-    setUsers((prev) => prev.map((u) => (u.id === blockTarget ? { ...u, blocked: !u.blocked } : u)));
-    setBlockTarget(null);
-  };
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete user");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User deleted");
+      setDeleteId(null);
+    },
+  });
 
   return (
-    <section className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6 container mx-auto p-4">
+      {/* Header */}
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Team</p>
-          <h1 className="text-3xl font-semibold text-charcoal-900 dark:text-white">Manage Users</h1>
-          <p className="text-sm text-charcoal-500 dark:text-charcoal-300">
-            Invite teammates, adjust their permissions, and keep sensitive workflows secure.
-          </p>
+          <p className="text-xs uppercase tracking-[0.3em] text-gold-500 font-semibold mb-1">Access</p>
+          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
         </div>
         <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gold-600"
-          onClick={() => openModal()}
+          onClick={() => { setForm({ id: null, name: "", email: "", phone: "", role: "user", status: "Active", password: "" }); setModalOpen(true); }}
+          className="bg-gray-900 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-lg shadow-gray-200"
         >
-          <span className="text-lg">+</span>
-          Add User
+          <Plus size={18} /> Add User
         </button>
-      </header>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total Users" value={users.length} accent="from-amber-200 to-amber-50" />
-        <StatCard label="Active" value={activeUsers} accent="from-emerald-200 to-emerald-50" />
-        <StatCard label="Blocked" value={users.length - activeUsers} accent="from-rose-100 to-rose-50" />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-slate-500">
-            <tr>
-              <th className="px-4 py-3 text-left font-semibold">Name</th>
-              <th className="px-4 py-3 text-left font-semibold">Email</th>
-              <th className="px-4 py-3 text-left font-semibold">Role</th>
-              <th className="px-4 py-3 text-left font-semibold">Permission</th>
-              <th className="px-4 py-3 text-left font-semibold">Status</th>
-              <th className="px-4 py-3 text-left font-semibold">Created</th>
-              <th className="px-4 py-3 text-right font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="odd:bg-white even:bg-slate-50">
-                <td className="px-4 py-3 font-semibold text-charcoal-900">{user.name}</td>
-                <td className="px-4 py-3 text-slate-600">{user.email}</td>
-                <td className="px-4 py-3">{user.role}</td>
-                <td className="px-4 py-3">{user.permission}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      user.blocked ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"
-                    }`}
-                  >
-                    {user.blocked ? "Blocked" : "Active"}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-slate-500">{user.createdAt || "--"}</td>
-                <td className="px-4 py-3 text-right">
-                  <div className="inline-flex gap-2">
-                    <button
-                      type="button"
-                      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                      onClick={() => openModal(user)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-md border border-rose-100 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                      onClick={() => setDeleteTarget(user.id)}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-                      onClick={() => setBlockTarget(user.id)}
-                    >
-                      {user.blocked ? "Unblock" : "Block"}
-                    </button>
-                  </div>
-                </td>
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+            <thead className="bg-gray-50 text-gray-600 text-xs font-bold uppercase tracking-wider">
+              <tr>
+                <th className="p-4 border-b">Name</th>
+                <th className="p-4 border-b">Email</th>
+                <th className="p-4 border-b">Phone</th>
+                <th className="p-4 border-b">Role</th>
+                <th className="p-4 border-b">Status</th>
+                <th className="p-4 border-b text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {users.length === 0 && (
-          <div className="p-6 text-center text-sm text-slate-500">No users found. Start by inviting a teammate.</div>
-        )}
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {isLoading ? (
+                <tr><td colSpan={6} className="p-8 text-center text-gray-500">Loading users...</td></tr>
+              ) : users.length === 0 ? (
+                <tr><td colSpan={6} className="p-8 text-center text-gray-500">No users found</td></tr>
+              ) : (
+                users.map((user) => (
+                  <tr key={user._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-4 font-semibold text-gray-900">{user.name}</td>
+                    <td className="p-4 text-gray-600">{user.email}</td>
+                    <td className="p-4 text-gray-600">{user.phone || "-"}</td>
+                    <td className="p-4 uppercase text-xs font-bold text-gray-500">{user.role}</td>
+                    <td className="p-4">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${user.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                        {user.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="inline-flex gap-2">
+                        <button
+                          onClick={() => { setForm({ id: user._id, name: user.name, email: user.email, phone: user.phone || "", role: user.role, status: user.status || "Active", password: "" }); setModalOpen(true); }}
+                          className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteId(user._id)}
+                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* Modal */}
       {modalOpen && (
-        <Modal title={form.id ? "Edit User" : "Add New User"} onClose={closeModal}>
-          <div className="space-y-4">
-            <label className="block text-sm font-medium text-slate-700">
-              Full Name<em className="text-red-500">*</em>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-              />
-            </label>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">{form.id ? "Edit User" : "New User"}</h2>
+              <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">✕</button>
+            </div>
 
-            <label className="block text-sm font-medium text-slate-700">
-              Email<em className="text-red-500">*</em>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-              />
-            </label>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Phone</label>
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
+                  <select
+                    value={form.role}
+                    onChange={(e) => setForm({ ...form, role: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow bg-white"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                    <option value="editor">Editor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow bg-white"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Password {form.id && "(Leave blank to keep current)"}</label>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow"
+                />
+              </div>
+            </div>
 
-            <label className="block text-sm font-medium text-slate-700">
-              WhatsApp Number
-              <input
-                type="tel"
-                maxLength={10}
-                value={form.whatsapp}
-                onChange={(e) => setForm((prev) => ({ ...prev, whatsapp: e.target.value.replace(/[^0-9]/g, "") }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-              />
-            </label>
-
-            <label className="block text-sm font-medium text-slate-700">
-              Role<em className="text-red-500">*</em>
-              <select
-                value={form.role}
-                onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-              >
-                {roles.map((role) => (
-                  <option key={role}>{role}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block text-sm font-medium text-slate-700">
-              Permission
-              <select
-                value={form.permission}
-                onChange={(e) => setForm((prev) => ({ ...prev, permission: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-              >
-                {permissionPresets.map((perm) => (
-                  <option key={perm}>{perm}</option>
-                ))}
-              </select>
-            </label>
+            <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+              <button onClick={() => setModalOpen(false)} className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+              <button onClick={() => mutation.mutate(form)} className="px-5 py-2.5 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-md">
+                {form.id ? "Update User" : "Create User"}
+              </button>
+            </div>
           </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={closeModal}>
-              Cancel
-            </button>
-            <button
-              className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600"
-              onClick={saveUser}
-            >
-              {form.id ? "Update" : "Save"}
-            </button>
+        </div>
+      )}
+
+      {deleteId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm text-center shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete User?</h3>
+            <p className="text-gray-500 mb-6 text-sm">Are you sure you want to delete this user?</p>
+            <div className="flex justify-center gap-3">
+              <button onClick={() => setDeleteId(null)} className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors">Cancel</button>
+              <button onClick={() => deleteMutation.mutate(deleteId)} className="flex-1 px-4 py-2.5 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md">Delete</button>
+            </div>
           </div>
-        </Modal>
-      )}
-
-      {deleteTarget && (
-        <ConfirmDialog
-          title="Delete this user?"
-          subtitle="This action is permanent and cannot be undone."
-          confirmLabel="Yes, delete"
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={confirmDelete}
-        />
-      )}
-
-      {blockTarget && (
-        <ConfirmDialog
-          title={users.find((u) => u.id === blockTarget)?.blocked ? "Unblock user?" : "Block user?"}
-          subtitle={
-            users.find((u) => u.id === blockTarget)?.blocked
-              ? "They will regain access immediately."
-              : "They will no longer be able to sign in."
-          }
-          confirmLabel={users.find((u) => u.id === blockTarget)?.blocked ? "Unblock" : "Block"}
-          onCancel={() => setBlockTarget(null)}
-          onConfirm={toggleBlock}
-        />
-      )}
-    </section>
-  );
-}
-
-function StatCard({ label, value, accent }) {
-  return (
-    <div className={`rounded-2xl bg-gradient-to-br ${accent} p-4 shadow-inner`}>
-      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-charcoal-900">{value}</p>
-    </div>
-  );
-}
-
-function Modal({ title, children, onClose }) {
-  return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-charcoal-900">{title}</h2>
-          <button className="text-slate-400 hover:text-slate-600" onClick={onClose}>
-            ✕
-          </button>
         </div>
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmDialog({ title, subtitle, confirmLabel, onConfirm, onCancel }) {
-  return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-3xl text-amber-500">
-          !
-        </div>
-        <h3 className="mt-4 text-lg font-semibold text-charcoal-900">{title}</h3>
-        <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
-        <div className="mt-6 flex justify-center gap-3">
-          <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

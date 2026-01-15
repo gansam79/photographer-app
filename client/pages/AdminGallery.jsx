@@ -1,322 +1,220 @@
-import React, { useMemo, useState } from "react";
-
-const seedCollections = [
-  {
-    id: "1",
-    title: "ISRO Ceremony",
-    year: "2025",
-    category: "Event",
-    images: [
-      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=400&q=80",
-      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=80",
-    ],
-  },
-  {
-    id: "2",
-    title: "Pre-wedding in Goa",
-    year: "2024",
-    category: "Workshop",
-    images: [
-      "https://images.unsplash.com/photo-1520854223473-4a129c60036c?auto=format&fit=crop&w=400&q=80",
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=400&q=80",
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80",
-    ],
-  },
-];
-
-const emptyForm = {
-  id: null,
-  title: "",
-  year: "2025",
-  category: "Event",
-  description: "",
-  images: [],
-};
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2, Image as ImageIcon, Filter } from "lucide-react";
 
 export default function AdminGallery() {
-  const [collections, setCollections] = useState(seedCollections);
-  const [form, setForm] = useState(emptyForm);
+  const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState({ id: null, title: "", image: "", category: "General", status: "Active" });
   const [deleteId, setDeleteId] = useState(null);
 
-  const stats = useMemo(() => {
-    const total = collections.length;
-    const images = collections.reduce((sum, c) => sum + c.images.length, 0);
-    const events = collections.filter((c) => c.category === "Event").length;
-    const workshops = collections.filter((c) => c.category === "Workshop").length;
-    return { total, images, events, workshops };
-  }, [collections]);
+  const { data: galleryItems = [], isLoading } = useQuery({
+    queryKey: ["gallery"],
+    queryFn: async () => {
+      const res = await fetch("/api/gallery");
+      if (!res.ok) throw new Error("Failed to fetch gallery");
+      return res.json();
+    },
+  });
 
-  const openModal = (collection = null) => {
-    if (collection) {
-      setForm({ ...collection, images: collection.images.map((src, idx) => ({ id: `${collection.id}-${idx}`, src })) });
-    } else {
-      setForm(emptyForm);
-    }
-    setModalOpen(true);
-  };
+  const mutation = useMutation({
+    mutationFn: async (data) => {
+      const url = data.id ? `/api/gallery/${data.id}` : "/api/gallery";
+      const method = data.id ? "PUT" : "POST";
+      const { id, ...body } = data;
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to save gallery item");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gallery"] });
+      toast.success(form.id ? "Item updated" : "Item created");
+      setModalOpen(false);
+      setForm({ id: null, title: "", image: "", category: "General", status: "Active" });
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
-  const closeModal = () => {
-    setModalOpen(false);
-    setForm(emptyForm);
-  };
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/api/gallery/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete item");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gallery"] });
+      toast.success("Item deleted");
+      setDeleteId(null);
+    },
+  });
 
-  const handleFiles = (files) => {
-    if (!files) return;
-    const selected = Array.from(files).slice(0, 5);
-    selected.forEach((file) => {
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
       const reader = new FileReader();
-      reader.onload = () => {
-        setForm((prev) => ({
-          ...prev,
-          images: [...prev.images, { id: crypto.randomUUID(), src: reader.result }],
-        }));
-      };
+      reader.onloadend = () => setForm({ ...form, image: reader.result });
       reader.readAsDataURL(file);
-    });
-  };
-
-  const removeImage = (id) => {
-    setForm((prev) => ({ ...prev, images: prev.images.filter((img) => img.id !== id) }));
-  };
-
-  const saveCollection = () => {
-    if (!form.title.trim()) return;
-    const normalizedImages = form.images.map((img) => img.src);
-    if (form.id) {
-      setCollections((prev) => prev.map((c) => (c.id === form.id ? { ...form, images: normalizedImages } : c)));
-    } else {
-      setCollections((prev) => [
-        {
-          ...form,
-          id: crypto.randomUUID(),
-          images: normalizedImages,
-        },
-        ...prev,
-      ]);
     }
-    closeModal();
-  };
-
-  const confirmDelete = () => {
-    setCollections((prev) => prev.filter((c) => c.id !== deleteId));
-    setDeleteId(null);
   };
 
   return (
-    <section className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6 container mx-auto p-4">
+      {/* Header */}
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Media</p>
-          <h1 className="text-3xl font-semibold text-charcoal-900 dark:text-white">Photo Gallery</h1>
-          <p className="text-sm text-charcoal-500 dark:text-charcoal-300">
-            Curate featured shoots and keep the homepage visuals fresh.
-          </p>
+          <p className="text-xs uppercase tracking-[0.3em] text-gold-500 font-semibold mb-1">Portfolio</p>
+          <h1 className="text-2xl font-bold text-gray-900">Gallery</h1>
         </div>
         <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gold-600"
-          onClick={() => openModal()}
+          onClick={() => { setForm({ id: null, title: "", image: "", category: "General", status: "Active" }); setModalOpen(true); }}
+          className="bg-gray-900 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-lg shadow-gray-200"
         >
-          <span className="text-lg">+</span>
-          Add Gallery
+          <Plus size={18} /> Add Item
         </button>
-      </header>
-
-      <div className="grid gap-4 md:grid-cols-4">
-        <Stat label="Collections" value={stats.total} accent="from-amber-100 to-white" />
-        <Stat label="Images" value={stats.images} accent="from-emerald-100 to-white" />
-        <Stat label="Events" value={stats.events} accent="from-blue-100 to-white" />
-        <Stat label="Workshops" value={stats.workshops} accent="from-rose-50 to-white" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {collections.map((collection) => (
-          <article key={collection.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{collection.year}</p>
-                <h2 className="text-xl font-semibold text-charcoal-900">{collection.title}</h2>
-              </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                {collection.category}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 p-4">
-              {collection.images.slice(0, 3).map((img, idx) => (
-                <div key={`${collection.id}-${idx}`} className="relative h-32 overflow-hidden rounded-xl">
-                  <img src={img} alt={collection.title} className="h-full w-full object-cover" />
-                  {idx === 2 && collection.images.length > 3 && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
-                      +{collection.images.length - 3}
-                    </div>
-                  )}
+      {/* Gallery Grid */}
+      {isLoading ? (
+        <div className="text-center py-12 text-gray-500">Loading gallery...</div>
+      ) : galleryItems.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">No images in gallery. Add your first masterpiece!</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {galleryItems.map((item) => (
+            <div key={item._id} className="group bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="relative aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                {item.image ? (
+                  <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                ) : (
+                  <ImageIcon className="text-gray-400" />
+                )}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => { setForm({ id: item._id, title: item.title, image: item.image, category: item.category, status: item.status }); setModalOpen(true); }}
+                    className="p-2 bg-white text-gray-900 rounded-full hover:scale-110 transition-transform"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    onClick={() => setDeleteId(item._id)}
+                    className="p-2 bg-white text-red-600 rounded-full hover:scale-110 transition-transform"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-              ))}
-            </div>
-            <div className="flex justify-between border-t border-slate-200 px-4 py-3">
-              <p className="text-sm text-slate-500">{collection.images.length} photos</p>
-              <div className="inline-flex gap-2">
-                <button
-                  className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                  onClick={() => openModal(collection)}
-                >
-                  Edit
-                </button>
-                <button
-                  className="rounded-md border border-rose-100 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                  onClick={() => setDeleteId(collection.id)}
-                >
-                  Delete
-                </button>
+              </div>
+              <div className="p-4">
+                <h3 className="font-semibold text-gray-900 truncate">{item.title || "Untitled"}</h3>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">{item.category}</span>
+                  <span className={`w-2 h-2 rounded-full ${item.status === "Active" ? "bg-green-500" : "bg-gray-300"}`}></span>
+                </div>
               </div>
             </div>
-          </article>
-        ))}
-        {collections.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-            No galleries yet. Start by uploading highlights from your latest shoot.
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
+      {/* Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Gallery</p>
-                <h2 className="text-2xl font-semibold text-charcoal-900">
-                  {form.id ? "Edit Gallery" : "Add New Gallery"}
-                </h2>
-              </div>
-              <button className="text-slate-400 hover:text-slate-600" onClick={closeModal}>
-                ✕
-              </button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">{form.id ? "Edit Item" : "New Item"}</h2>
+              <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">✕</button>
             </div>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <Field label="Title" required>
+
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Title</label>
                 <input
+                  type="text"
                   value={form.title}
-                  onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow"
+                  placeholder="Image title"
                 />
-              </Field>
-              <Field label="Year" required>
-                <select
-                  value={form.year}
-                  onChange={(e) => setForm((prev) => ({ ...prev, year: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  {Array.from({ length: 5 }).map((_, idx) => {
-                    const year = String(2026 - idx);
-                    return (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    );
-                  })}
-                </select>
-              </Field>
-              <Field label="Category">
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  <option value="Event">Event</option>
-                  <option value="Workshop">Workshop</option>
-                  <option value="Commercial">Commercial</option>
-                </select>
-              </Field>
-              <Field label="Description">
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  rows={3}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </Field>
-              <div className="md:col-span-2">
-                <Field label="Upload Images (max 5)" required>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Category</label>
+                  <input
+                    type="text"
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow"
+                    placeholder="e.g. Wedding"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow bg-white"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Image</label>
+                <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
                   <input
                     type="file"
                     accept="image/*"
-                    multiple
-                    onChange={(e) => handleFiles(e.target.files)}
-                    className="w-full rounded-lg border border-dashed border-slate-300 px-3 py-10 text-center text-sm text-slate-400"
+                    onChange={handleImageUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
-                </Field>
-              </div>
-            </div>
-            {form.images.length > 0 && (
-              <div className="mt-6 rounded-xl border border-slate-200 p-4">
-                <p className="text-sm font-semibold text-charcoal-900">Selected Images</p>
-                <div className="mt-4 grid grid-cols-5 gap-3">
-                  {form.images.map((img) => (
-                    <div key={img.id} className="relative h-20 overflow-hidden rounded-lg">
-                      <img src={img.src} alt="preview" className="h-full w-full object-cover" />
-                      <button
-                        className="absolute right-1 top-1 rounded-full bg-black/50 px-2 text-xs text-white"
-                        onClick={() => removeImage(img.id)}
-                      >
-                        ×
-                      </button>
+                  {form.image ? (
+                    <div className="relative">
+                      <img src={form.image} alt="Preview" className="w-full h-48 object-cover rounded-lg shadow-sm" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-lg">
+                        <span className="text-white font-medium">Change Image</span>
+                      </div>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="py-8 text-gray-400 flex flex-col items-center gap-2">
+                      <ImageIcon size={32} />
+                      <span className="text-sm">Click to upload image</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-            <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4">
-              <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={closeModal}>
-                Cancel
-              </button>
-              <button className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white" onClick={saveCollection}>
-                {form.id ? "Update" : "Save"}
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+              <button onClick={() => setModalOpen(false)} className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+              <button onClick={() => mutation.mutate(form)} className="px-5 py-2.5 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-md">
+                {form.id ? "Update Item" : "Create Item"}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Delete Confirmation */}
       {deleteId && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-3xl text-rose-500">
-              !
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm text-center shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} />
             </div>
-            <h3 className="mt-4 text-lg font-semibold text-charcoal-900">Delete this gallery?</h3>
-            <p className="mt-2 text-sm text-slate-500">This action cannot be undone.</p>
-            <div className="mt-6 flex justify-center gap-3">
-              <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={() => setDeleteId(null)}>
-                Cancel
-              </button>
-              <button className="rounded-md bg-rose-500 px-4 py-2 text-sm font-semibold text-white" onClick={confirmDelete}>
-                Delete
-              </button>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Item?</h3>
+            <p className="text-gray-500 mb-6 text-sm">Are you sure you want to delete this item? This action cannot be undone.</p>
+            <div className="flex justify-center gap-3">
+              <button onClick={() => setDeleteId(null)} className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors">Cancel</button>
+              <button onClick={() => deleteMutation.mutate(deleteId)} className="flex-1 px-4 py-2.5 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md">Delete</button>
             </div>
           </div>
         </div>
       )}
-    </section>
-  );
-}
-
-function Stat({ label, value, accent }) {
-  return (
-    <div className={`rounded-2xl bg-gradient-to-br ${accent} p-4 shadow-inner`}>
-      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-charcoal-900">{value}</p>
     </div>
-  );
-}
-
-function Field({ label, required, children }) {
-  return (
-    <label className="block text-sm font-medium text-slate-700">
-      {label}
-      {required && <span className="text-rose-500"> *</span>}
-      <div className="mt-1">{children}</div>
-    </label>
   );
 }

@@ -108,18 +108,35 @@ export default function AdminOrders() {
     try {
       const method = editingOrder ? "PUT" : "POST";
       const url = editingOrder ? `/api/orders/${editingOrder._id}` : "/api/orders";
+
+      // Sanitize payload: convert empty strings to null for specific types
+      const payload = { ...form };
+
+      // FALLBACK: Map name to customerName because the server might be running a stale schema 
+      // that requires 'customerName'. This ensures it works on both new and old schemas.
+      if (payload.name) payload.customerName = payload.name;
+
+      ['amount', 'amount_paid', 'remaining_amount', 'event_date', 'delivery_date'].forEach(field => {
+        if (payload[field] === "") payload[field] = null;
+      });
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to save order");
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to save order");
+      }
+
       await fetchOrders();
       setShowForm(false);
       setEditingOrder(null);
     } catch (err) {
       console.error(err);
-      alert("Could not save order");
+      alert(err.message);
     }
   }
 
@@ -265,23 +282,26 @@ export default function AdminOrders() {
               ) : (
                 orders.map((order) => (
                   <tr key={order._id} className="odd:bg-white even:bg-slate-50">
-                    <td className="px-4 py-3 font-semibold text-charcoal-900">{order.name}</td>
-                    <td className="px-4 py-3 text-slate-600">{order.whatsapp_no}</td>
-                    <td className="px-4 py-3">{order.event_name}</td>
-                    <td className="px-4 py-3">{order.photography_type || order.service}</td>
+                    <td className="px-4 py-3 font-semibold text-charcoal-900">{order.name || order.customerName}</td>
+                    <td className="px-4 py-3 text-slate-600">{order.whatsapp_no || order.customerPhone || "-"}</td>
+                    <td className="px-4 py-3">{order.event_name || "-"}</td>
+                    <td className="px-4 py-3">{order.photography_type || order.photographyType || order.service || "-"}</td>
                     <td className="px-4 py-3 text-slate-500">
-                      {order.event_date ? new Date(order.event_date).toLocaleDateString() : "--"}
+                      {order.event_date
+                        ? new Date(order.event_date).toLocaleDateString()
+                        : order.date ? new Date(order.date).toLocaleDateString() : "--"
+                      }
                     </td>
-                    <td className="px-4 py-3">{order.location}</td>
+                    <td className="px-4 py-3">{order.location || "-"}</td>
                     <td className="px-4 py-3 font-medium text-charcoal-900">
                       {order.amount?.toLocaleString ? `₹${order.amount.toLocaleString()}` : order.amount}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {order.amount_paid?.toLocaleString ? `₹${order.amount_paid.toLocaleString()}` : order.amount_paid}
+                      {order.amount_paid?.toLocaleString ? `₹${order.amount_paid.toLocaleString()}` : (order.paidAmount ? `₹${order.paidAmount.toLocaleString()}` : "-")}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClass(order.order_status)}`}>
-                        {order.order_status || "Pending"}
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClass(order.order_status || order.status)}`}>
+                        {order.order_status || order.status || "Pending"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -309,225 +329,246 @@ export default function AdminOrders() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-5xl rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="flex flex-col w-full max-w-5xl max-h-[90vh] rounded-2xl bg-white shadow-2xl">
+
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Order</p>
                 <h2 className="text-2xl font-semibold text-charcoal-900">
                   {editingOrder ? "Edit Order" : "Add New Order"}
                 </h2>
               </div>
-              <button className="text-slate-400 hover:text-slate-600" onClick={() => setShowForm(false)}>
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                onClick={() => setShowForm(false)}
+              >
                 ✕
               </button>
             </div>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <FormField label="Name" required>
-                <input
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="WhatsApp No." required>
-                <input
-                  name="whatsapp_no"
-                  value={form.whatsapp_no}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Email">
-                <input
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Event Name">
-                <input
-                  name="event_name"
-                  value={form.event_name}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Photography Type" required>
-                <div className="flex gap-2">
-                  <select
-                    name="photography_type"
-                    value={form.photography_type}
+
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
+              <div className="grid gap-5 md:grid-cols-2">
+                <FormField label="Name" required>
+                  <input
+                    name="name"
+                    value={form.name}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                  >
-                    <option value="">Choose type</option>
-                    {photographyTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setShowTypeModal(true)}
-                    className="shrink-0 rounded-lg border border-gold-200 bg-gold-50 px-3 text-gold-600 hover:bg-gold-100"
-                    title="Add new type"
-                  >
-                    +
-                  </button>
-                </div>
-              </FormField>
-              <FormField label="Location" required>
-                <input
-                  name="location"
-                  value={form.location}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Date" required>
-                <input
-                  type="date"
-                  name="event_date"
-                  value={form.event_date}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Start Time">
-                <input
-                  type="time"
-                  name="start_time"
-                  value={form.start_time}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="End Time">
-                <input
-                  type="time"
-                  name="end_time"
-                  value={form.end_time}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Service" required>
-                <div className="space-y-2 rounded-lg border border-slate-200 p-3">
-                  <div className="flex flex-wrap gap-3">
-                    {serviceTypes.map((svc) => (
-                      <label key={svc} className="inline-flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          value={svc}
-                          checked={(form.service || "").split(", ").includes(svc)}
-                          onChange={handleServiceChange}
-                          className="h-4 w-4 rounded border-slate-300 text-gold-500 focus:ring-gold-500"
-                        />
-                        <span className="text-sm text-slate-700">{svc}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowServiceModal(true)}
-                    className="mt-2 text-xs font-semibold text-gold-600 hover:text-gold-700"
-                  >
-                    + Add New Service
-                  </button>
-                </div>
-              </FormField>
-              <FormField label="Album Pages" required>
-                <select
-                  name="album_pages"
-                  value={form.album_pages}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  <option value="">Choose pages</option>
-                  <option value="50">50</option>
-                  <option value="80">80</option>
-                  <option value="100">100</option>
-                </select>
-              </FormField>
-              <FormField label="Amount" required>
-                <input
-                  type="number"
-                  name="amount"
-                  value={form.amount}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Paid" required>
-                <input
-                  type="number"
-                  name="amount_paid"
-                  value={form.amount_paid}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Remaining" required>
-                <input
-                  type="number"
-                  name="remaining_amount"
-                  value={form.remaining_amount}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Deliverables">
-                <input
-                  name="deliverables"
-                  value={form.deliverables}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Delivery Date">
-                <input
-                  type="date"
-                  name="delivery_date"
-                  value={form.delivery_date}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                />
-              </FormField>
-              <FormField label="Order Status">
-                <select
-                  name="order_status"
-                  value={form.order_status}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                >
-                  <option value="">Select status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Delivered">Delivered</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
-              </FormField>
-              <div className="md:col-span-2">
-                <FormField label="Notes">
-                  <textarea
-                    name="notes"
-                    value={form.notes}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                    rows={3}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
                   />
                 </FormField>
+                <FormField label="WhatsApp No." required>
+                  <input
+                    name="whatsapp_no"
+                    value={form.whatsapp_no}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                  />
+                </FormField>
+                <FormField label="Email">
+                  <input
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                  />
+                </FormField>
+                <FormField label="Event Name">
+                  <input
+                    name="event_name"
+                    value={form.event_name}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                  />
+                </FormField>
+                <FormField label="Photography Type" required>
+                  <div className="flex gap-2">
+                    <select
+                      name="photography_type"
+                      value={form.photography_type}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none bg-white"
+                    >
+                      <option value="">Choose type</option>
+                      {photographyTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowTypeModal(true)}
+                      className="shrink-0 rounded-lg border border-gold-200 bg-gold-50 px-3 text-gold-600 hover:bg-gold-100"
+                      title="Add new type"
+                    >
+                      +
+                    </button>
+                  </div>
+                </FormField>
+                <FormField label="Location" required>
+                  <input
+                    name="location"
+                    value={form.location}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                  />
+                </FormField>
+                <FormField label="Date" required>
+                  <input
+                    type="date"
+                    name="event_date"
+                    value={form.event_date}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                  />
+                </FormField>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Start Time">
+                    <input
+                      type="time"
+                      name="start_time"
+                      value={form.start_time}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                    />
+                  </FormField>
+                  <FormField label="End Time">
+                    <input
+                      type="time"
+                      name="end_time"
+                      value={form.end_time}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                    />
+                  </FormField>
+                </div>
+                <FormField label="Service" required>
+                  <div className="space-y-2 rounded-lg border border-slate-200 p-3">
+                    <div className="flex flex-wrap gap-3">
+                      {serviceTypes.map((svc) => (
+                        <label key={svc} className="inline-flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            value={svc}
+                            checked={(form.service || "").split(", ").includes(svc)}
+                            onChange={handleServiceChange}
+                            className="h-4 w-4 rounded border-slate-300 text-gold-500 focus:ring-gold-500"
+                          />
+                          <span className="text-sm text-slate-700">{svc}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowServiceModal(true)}
+                      className="mt-2 text-xs font-semibold text-gold-600 hover:text-gold-700"
+                    >
+                      + Add New Service
+                    </button>
+                  </div>
+                </FormField>
+                <FormField label="Album Pages" required>
+                  <select
+                    name="album_pages"
+                    value={form.album_pages}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none bg-white"
+                  >
+                    <option value="">Choose pages</option>
+                    <option value="50">50</option>
+                    <option value="80">80</option>
+                    <option value="100">100</option>
+                  </select>
+                </FormField>
+                <FormField label="Amount" required>
+                  <input
+                    type="number"
+                    name="amount"
+                    value={form.amount}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                  />
+                </FormField>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Paid" required>
+                    <input
+                      type="number"
+                      name="amount_paid"
+                      value={form.amount_paid}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                    />
+                  </FormField>
+                  <FormField label="Remaining" required>
+                    <input
+                      type="number"
+                      name="remaining_amount"
+                      value={form.remaining_amount}
+                      readOnly
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 cursor-not-allowed"
+                    />
+                  </FormField>
+                </div>
+                <FormField label="Deliverables">
+                  <input
+                    name="deliverables"
+                    value={form.deliverables}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                  />
+                </FormField>
+                <FormField label="Delivery Date">
+                  <input
+                    type="date"
+                    name="delivery_date"
+                    value={form.delivery_date}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                  />
+                </FormField>
+                <FormField label="Order Status">
+                  <select
+                    name="order_status"
+                    value={form.order_status}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none bg-white"
+                  >
+                    <option value="">Select status</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </FormField>
+                <div className="md:col-span-2">
+                  <FormField label="Notes">
+                    <textarea
+                      name="notes"
+                      value={form.notes}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                      rows={3}
+                    />
+                  </FormField>
+                </div>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4">
-              <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={() => setShowForm(false)}>
+
+            {/* Footer */}
+            <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 px-6 py-4">
+              <button
+                className="rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
+                onClick={() => setShowForm(false)}
+              >
                 Cancel
               </button>
-              <button className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white" onClick={saveOrder}>
+              <button
+                className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600 transition-colors shadow-sm"
+                onClick={saveOrder}
+              >
                 Save Order
               </button>
             </div>
