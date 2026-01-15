@@ -11,7 +11,41 @@ export const getAllOrders = async (req, res) => {
 
 export const createOrder = async (req, res) => {
     try {
-        const order = new Order(req.body);
+        const orderData = { ...req.body };
+        const { name, email, whatsapp_no } = orderData;
+
+        // Try to link with existing client or create new one
+        if (name || email || whatsapp_no) {
+            const Client = (await import("../models/Client.js")).default;
+
+            // Try to find client by unique identifiers
+            let client = null;
+            if (email) client = await Client.findOne({ email });
+            if (!client && whatsapp_no) client = await Client.findOne({ phone: whatsapp_no });
+            if (!client && name) client = await Client.findOne({ name }); // Fallback to name
+
+            if (client) {
+                orderData.client = client._id;
+            } else {
+                // Create new client if enough info
+                try {
+                    client = new Client({
+                        name: name || "Unknown",
+                        email: email || `temp_${Date.now()}@example.com`,
+                        phone: whatsapp_no || "0000000000",
+                        type: "Regular", // Default
+                        source: "Order"
+                    });
+                    await client.save();
+                    orderData.client = client._id;
+                } catch (clientErr) {
+                    console.error("Auto-create client failed:", clientErr);
+                    // Proceed without linking if client creation fails
+                }
+            }
+        }
+
+        const order = new Order(orderData);
         await order.save();
         res.status(201).json(order);
     } catch (error) {

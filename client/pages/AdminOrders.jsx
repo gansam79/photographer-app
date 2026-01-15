@@ -25,6 +25,7 @@ const emptyOrder = {
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
@@ -34,8 +35,13 @@ export default function AdminOrders() {
   const [showView, setShowView] = useState(false);
   const [viewOrder, setViewOrder] = useState(null);
 
+  // Client autocomplete state
+  const [clientSearch, setClientSearch] = useState("");
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
   useEffect(() => {
     fetchOrders();
+    fetchClients();
   }, []);
 
   const stats = useMemo(() => {
@@ -61,6 +67,17 @@ export default function AdminOrders() {
     }
   };
 
+  async function fetchClients() {
+    try {
+      const res = await fetch("/api/clients");
+      if (!res.ok) throw new Error("Failed to load clients");
+      const data = await res.json();
+      setClients(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching clients:", err);
+    }
+  }
+
   async function fetchOrders() {
     setLoading(true);
     try {
@@ -79,6 +96,7 @@ export default function AdminOrders() {
   function openAdd() {
     setEditingOrder(null);
     setForm(emptyOrder);
+    setClientSearch("");
     setShowForm(true);
   }
 
@@ -116,11 +134,13 @@ export default function AdminOrders() {
       delivery_date: (order.delivery_date || stash.delivery_date)
         ? new Date(order.delivery_date || stash.delivery_date).toISOString().split("T")[0] : "",
     });
+    setClientSearch(order.name || order.customerName || stash.name || "");
     setShowForm(true);
   }
 
   function handleChange(e) {
     const { name, value } = e.target;
+    // Removed name-specific client logic from here to handleSelectClient
     setForm((f) => {
       const updated = { ...f, [name]: value };
       if (name === "amount" || name === "amount_paid") {
@@ -130,6 +150,24 @@ export default function AdminOrders() {
       }
       return updated;
     });
+  }
+
+  function handleClientSearchChange(e) {
+    const value = e.target.value;
+    setClientSearch(value);
+    setForm(f => ({ ...f, name: value })); // Allow manual typing
+    setShowClientDropdown(true);
+  }
+
+  function selectClient(client) {
+    setClientSearch(client.name);
+    setForm(f => ({
+      ...f,
+      name: client.name,
+      whatsapp_no: client.phone || f.whatsapp_no,
+      email: client.email || f.email
+    }));
+    setShowClientDropdown(false);
   }
 
   async function saveOrder() {
@@ -540,12 +578,37 @@ export default function AdminOrders() {
             <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
               <div className="grid gap-5 md:grid-cols-2">
                 <FormField label="Name" required>
-                  <input
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={clientSearch}
+                      onChange={handleClientSearchChange}
+                      onFocus={() => setShowClientDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)} // Delay to allow click
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none"
+                      placeholder="Search for a client..."
+                      autoComplete="off"
+                    />
+                    {showClientDropdown && (
+                      <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                        {clients
+                          .filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+                          .map(client => (
+                            <div
+                              key={client._id}
+                              className="cursor-pointer px-3 py-2 text-sm hover:bg-slate-50 text-slate-700"
+                              onMouseDown={(e) => { e.preventDefault(); selectClient(client); }} // onMouseDown fires before Blur
+                            >
+                              <div className="font-medium">{client.name}</div>
+                              <div className="text-xs text-slate-500">{client.email}</div>
+                            </div>
+                          ))}
+                        {clients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase())).length === 0 && (
+                          <div className="px-3 py-2 text-sm text-slate-400">No matching clients</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </FormField>
                 <FormField label="WhatsApp No." required>
                   <input
@@ -762,226 +825,235 @@ export default function AdminOrders() {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
-      {showDelete && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-3xl text-rose-500">
-              !
-            </div>
-            <h3 className="mt-4 text-lg font-semibold text-charcoal-900">Delete this order?</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              This action cannot be undone. {toDeleteOrder?.name && `Order: ${toDeleteOrder.name}`}
-            </p>
-            <div className="mt-6 flex justify-center gap-3">
-              <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={() => setShowDelete(false)}>
-                Cancel
-              </button>
-              <button className="rounded-md bg-rose-500 px-4 py-2 text-sm font-semibold text-white" onClick={doDelete}>
-                Delete
-              </button>
+      {
+        showDelete && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-3xl text-rose-500">
+                !
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-charcoal-900">Delete this order?</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                This action cannot be undone. {toDeleteOrder?.name && `Order: ${toDeleteOrder.name}`}
+              </p>
+              <div className="mt-6 flex justify-center gap-3">
+                <button className="rounded-md border border-slate-200 px-4 py-2 text-sm" onClick={() => setShowDelete(false)}>
+                  Cancel
+                </button>
+                <button className="rounded-md bg-rose-500 px-4 py-2 text-sm font-semibold text-white" onClick={doDelete}>
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Add Type Modal */}
-      {showTypeModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-charcoal-900">Add New Type</h3>
-            <p className="mt-1 text-xs text-slate-500">Enter a new photography type to add to the list.</p>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-slate-700">Type Name</label>
-              <input
-                type="text"
-                value={newType}
-                onChange={(e) => setNewType(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                placeholder="e.g. Birthday, Corporate"
-                autoFocus
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                className="rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
-                onClick={() => setShowTypeModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600"
-                onClick={addNewType}
-              >
-                Add Type
-              </button>
+      {
+        showTypeModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-charcoal-900">Add New Type</h3>
+              <p className="mt-1 text-xs text-slate-500">Enter a new photography type to add to the list.</p>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700">Type Name</label>
+                <input
+                  type="text"
+                  value={newType}
+                  onChange={(e) => setNewType(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                  placeholder="e.g. Birthday, Corporate"
+                  autoFocus
+                />
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  className="rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
+                  onClick={() => setShowTypeModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600"
+                  onClick={addNewType}
+                >
+                  Add Type
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Add Service Modal */}
-      {showServiceModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-charcoal-900">Add New Service</h3>
-            <p className="mt-1 text-xs text-slate-500">Enter a new service name to add to the checklist.</p>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-slate-700">Service Name</label>
-              <input
-                type="text"
-                value={newService}
-                onChange={(e) => setNewService(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
-                placeholder="e.g. Drone, Live Streaming"
-                autoFocus
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                className="rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
-                onClick={() => setShowServiceModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600"
-                onClick={addNewService}
-              >
-                Add Service
-              </button>
+      {
+        showServiceModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-charcoal-900">Add New Service</h3>
+              <p className="mt-1 text-xs text-slate-500">Enter a new service name to add to the checklist.</p>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700">Service Name</label>
+                <input
+                  type="text"
+                  value={newService}
+                  onChange={(e) => setNewService(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                  placeholder="e.g. Drone, Live Streaming"
+                  autoFocus
+                />
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  className="rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
+                  onClick={() => setShowServiceModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600"
+                  onClick={addNewService}
+                >
+                  Add Service
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
       {/* View Order Modal */}
-      {showView && viewOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">
-              <h3 className="text-xl font-semibold text-charcoal-900">Order Details</h3>
-              <button
-                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 transition-colors"
-                onClick={() => setShowView(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
-              {/* Event Info */}
-              <div>
-                <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-3">Event Information</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="block text-slate-500 text-xs">Client Name</span>
-                    <span className="font-medium text-slate-900">{viewOrder.name || viewOrder.customerName}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Event Name</span>
-                    <span className="font-medium text-slate-900">{viewOrder.event_name}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Date</span>
-                    <span className="font-medium text-slate-900">
-                      {viewOrder.event_date || viewOrder.date ? new Date(viewOrder.event_date || viewOrder.date).toLocaleDateString() : "-"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Time</span>
-                    <span className="font-medium text-slate-900">
-                      {viewOrder.start_time || "--"} - {viewOrder.end_time || "--"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Location</span>
-                    <span className="font-medium text-slate-900">{viewOrder.location || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Photography Type</span>
-                    <span className="font-medium text-slate-900">{viewOrder.photography_type || viewOrder.photographyType || "-"}</span>
-                  </div>
-                </div>
+      {
+        showView && viewOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">
+                <h3 className="text-xl font-semibold text-charcoal-900">Order Details</h3>
+                <button
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 transition-colors"
+                  onClick={() => setShowView(false)}
+                >
+                  ✕
+                </button>
               </div>
 
-              {/* Contact & Service */}
-              <div className="border-t border-slate-100 pt-4">
-                <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-3">Contact & Services</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="block text-slate-500 text-xs">WhatsApp</span>
-                    <span className="font-medium text-slate-900">{viewOrder.whatsapp_no || viewOrder.customerPhone || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Email</span>
-                    <span className="font-medium text-slate-900">{viewOrder.email || "-"}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="block text-slate-500 text-xs">Services Included</span>
-                    <span className="font-medium text-slate-900">{viewOrder.service || (Array.isArray(viewOrder.services) ? viewOrder.services.join(", ") : "-")}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Album Pages</span>
-                    <span className="font-medium text-slate-900">{viewOrder.album_pages || viewOrder.albumPages || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Deliverables</span>
-                    <span className="font-medium text-slate-900">{viewOrder.deliverables || "-"}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Financials */}
-              <div className="border-t border-slate-100 pt-4">
-                <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-3">Financials</h4>
-                <div className="grid grid-cols-3 gap-4 text-sm bg-slate-50 p-4 rounded-lg">
-                  <div>
-                    <span className="block text-slate-500 text-xs">Total Amount</span>
-                    <span className="font-bold text-slate-900">₹{parseFloat(viewOrder.amount || 0).toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Paid</span>
-                    <span className="font-bold text-emerald-600">₹{(parseFloat(viewOrder.amount_paid) || parseFloat(viewOrder.paidAmount) || 0).toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-xs">Remaining</span>
-                    <span className={`font-bold ${(parseFloat(viewOrder.amount || 0) - (parseFloat(viewOrder.amount_paid) || parseFloat(viewOrder.paidAmount) || 0)) > 0 ? "text-rose-600" : "text-slate-400"}`}>
-                      ₹{(parseFloat(viewOrder.amount || 0) - (parseFloat(viewOrder.amount_paid) || parseFloat(viewOrder.paidAmount) || 0)).toLocaleString()}
-                    </span>
+              <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+                {/* Event Info */}
+                <div>
+                  <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-3">Event Information</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="block text-slate-500 text-xs">Client Name</span>
+                      <span className="font-medium text-slate-900">{viewOrder.name || viewOrder.customerName}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Event Name</span>
+                      <span className="font-medium text-slate-900">{viewOrder.event_name}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Date</span>
+                      <span className="font-medium text-slate-900">
+                        {viewOrder.event_date || viewOrder.date ? new Date(viewOrder.event_date || viewOrder.date).toLocaleDateString() : "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Time</span>
+                      <span className="font-medium text-slate-900">
+                        {viewOrder.start_time || "--"} - {viewOrder.end_time || "--"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Location</span>
+                      <span className="font-medium text-slate-900">{viewOrder.location || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Photography Type</span>
+                      <span className="font-medium text-slate-900">{viewOrder.photography_type || viewOrder.photographyType || "-"}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Notes */}
-              {viewOrder.notes && (
+                {/* Contact & Service */}
                 <div className="border-t border-slate-100 pt-4">
-                  <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-2">Notes</h4>
-                  <p className="text-sm text-slate-700 bg-amber-50 p-3 rounded-md">{viewOrder.notes}</p>
+                  <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-3">Contact & Services</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="block text-slate-500 text-xs">WhatsApp</span>
+                      <span className="font-medium text-slate-900">{viewOrder.whatsapp_no || viewOrder.customerPhone || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Email</span>
+                      <span className="font-medium text-slate-900">{viewOrder.email || "-"}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="block text-slate-500 text-xs">Services Included</span>
+                      <span className="font-medium text-slate-900">{viewOrder.service || (Array.isArray(viewOrder.services) ? viewOrder.services.join(", ") : "-")}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Album Pages</span>
+                      <span className="font-medium text-slate-900">{viewOrder.album_pages || viewOrder.albumPages || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Deliverables</span>
+                      <span className="font-medium text-slate-900">{viewOrder.deliverables || "-"}</span>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 px-6 py-4 bg-slate-50">
-              <button
-                className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-white text-slate-700 transition-colors"
-                onClick={() => downloadReceipt(viewOrder)}
-              >
-                <Download size={16} /> Download Receipt
-              </button>
-              <button
-                className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600 transition-colors"
-                onClick={() => openEdit(viewOrder)}
-              >
-                Edit Order
-              </button>
-            </div>
+                {/* Financials */}
+                <div className="border-t border-slate-100 pt-4">
+                  <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-3">Financials</h4>
+                  <div className="grid grid-cols-3 gap-4 text-sm bg-slate-50 p-4 rounded-lg">
+                    <div>
+                      <span className="block text-slate-500 text-xs">Total Amount</span>
+                      <span className="font-bold text-slate-900">₹{parseFloat(viewOrder.amount || 0).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Paid</span>
+                      <span className="font-bold text-emerald-600">₹{(parseFloat(viewOrder.amount_paid) || parseFloat(viewOrder.paidAmount) || 0).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 text-xs">Remaining</span>
+                      <span className={`font-bold ${(parseFloat(viewOrder.amount || 0) - (parseFloat(viewOrder.amount_paid) || parseFloat(viewOrder.paidAmount) || 0)) > 0 ? "text-rose-600" : "text-slate-400"}`}>
+                        ₹{(parseFloat(viewOrder.amount || 0) - (parseFloat(viewOrder.amount_paid) || parseFloat(viewOrder.paidAmount) || 0)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
+                {/* Notes */}
+                {viewOrder.notes && (
+                  <div className="border-t border-slate-100 pt-4">
+                    <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-2">Notes</h4>
+                    <p className="text-sm text-slate-700 bg-amber-50 p-3 rounded-md">{viewOrder.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 px-6 py-4 bg-slate-50">
+                <button
+                  className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-white text-slate-700 transition-colors"
+                  onClick={() => downloadReceipt(viewOrder)}
+                >
+                  <Download size={16} /> Download Receipt
+                </button>
+                <button
+                  className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600 transition-colors"
+                  onClick={() => openEdit(viewOrder)}
+                >
+                  Edit Order
+                </button>
+              </div>
+
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-    </section>
+    </section >
   );
 }
 

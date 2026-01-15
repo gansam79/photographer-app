@@ -21,6 +21,7 @@ const orderSchema = new mongoose.Schema(
         order_status: { type: String, enum: ["Pending", "In Progress", "Delivered", "Cancelled"], default: "Pending" },
         notes: { type: String },
         relatedUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' }
     },
     { timestamps: true }
 );
