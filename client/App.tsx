@@ -8,7 +8,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
-import Index from "./pages/Index";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import { AuthProvider } from "./context/AuthContext";
@@ -23,6 +23,7 @@ import AdminSlider from "./pages/AdminSlider";
 import AdminClients from "./pages/AdminClients";
 import AdminInvoices from "./pages/AdminInvoices";
 import AdminQuotations from "./pages/AdminQuotations";
+import AdminFilms from "./pages/AdminFilms";
 import AccessoriesManagement from "./pages/AccessoriesManagement";
 import AdminRegister from "./pages/AdminRegister";
 import UserProfile from "./pages/UserProfile";
@@ -46,6 +47,7 @@ const App = () => (
 const AppShell = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const location = useLocation();
+  console.log("ROUTER DEBUG: Path:", location.pathname);
   const isLoginRoute = location.pathname === "/" || location.pathname === "/login";
 
   useEffect(() => {
@@ -79,11 +81,13 @@ const AppShell = () => {
           <Routes>
             <Route path="/" element={<Login />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
-            <Route path="/dashboard" element={<Index />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/quotations" element={<Quotations />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/clients" element={<Clients />} />
 
+            {/* Admin Modules */}
+            <Route path="/films" element={<AdminFilms />} />
             <Route path="/orders" element={<AdminOrders />} />
             <Route path="/gallery" element={<AdminGallery />} />
             <Route path="/users" element={<AdminUsers />} />

@@ -5,6 +5,7 @@ const items = [
   // { to: "/quotations", label: "Quotations" },
   { to: "/orders", label: "Orders" },
   { to: "/gallery", label: "Gallery" },
+  { to: "/films", label: "Films" },
   { to: "/users", label: "Users" },
   { to: "/slider", label: "Slider" },
   { to: "/admin/clients", label: "Clients" },
@@ -15,7 +16,7 @@ const items = [
   { to: "/profile", label: "Profile" },
 ];
 
-export default function Navigation({ isMobileOpen = false, onClose = () => {} }) {
+export default function Navigation({ isMobileOpen = false, onClose = () => { } }) {
   return (
     <>
       <aside aria-label="Main navigation" className="hidden flex-shrink-0 lg:flex" style={{ width: 240 }}>
