@@ -9,7 +9,7 @@ const Gallery = () => {
     useEffect(() => {
         document.body.className = "portfolio-page";
 
-        fetch("http://localhost:8080/api/gallery")
+        fetch("/api/gallery")
             .then((res) => res.json())
             .then((data) => {
                 // Filter only active items if needed, or show all

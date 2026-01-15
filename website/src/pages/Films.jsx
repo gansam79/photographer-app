@@ -18,7 +18,7 @@ const Films = () => {
   useEffect(() => {
     document.body.className = "portfolio-page";
 
-    fetch("http://localhost:8080/api/films")
+    fetch("/api/films")
       .then(res => res.json())
       .then(data => {
         const activeFilms = data.filter(f => f.status === "Active");
