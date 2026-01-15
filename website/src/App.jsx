@@ -10,6 +10,7 @@ const Portfolio = lazy(() => import('./pages/Portfolio'))
 const Stories = lazy(() => import('./pages/Stories'))
 const Contact = lazy(() => import('./pages/Contact'))
 const Films = lazy(() => import('./pages/Films'))
+const Gallery = lazy(() => import('./pages/Gallery'))
 const Quote = lazy(() => import('./pages/Quote'))
 const ServiceDetails = lazy(() => import('./pages/ServiceDetails'))
 const ProjectDetails = lazy(() => import('./pages/ProjectDetails'))
@@ -62,7 +63,7 @@ function App() {
   return (
     <div className="App">
       <ErrorBoundary>
-        <Suspense fallback={<div style={{padding: '50px', textAlign: 'center', fontSize: '20px'}}>Loading page...</div>}>
+        <Suspense fallback={<div style={{ padding: '50px', textAlign: 'center', fontSize: '20px' }}>Loading page...</div>}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<About />} />
@@ -71,6 +72,7 @@ function App() {
             <Route path="/stories" element={<Stories />} />
             <Route path="/project-details" element={<ProjectDetails />} />
             <Route path="/films" element={<Films />} />
+            <Route path="/gallery" element={<Gallery />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/quote" element={<Quote />} />
             <Route path="/privacy" element={<Privacy />} />
