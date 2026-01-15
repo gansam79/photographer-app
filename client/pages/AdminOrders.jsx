@@ -80,8 +80,38 @@ export default function AdminOrders() {
 
   function openEdit(order) {
     setEditingOrder(order);
-    // normalize dates
-    setForm({ ...order, event_date: order.event_date ? order.event_date.split("T")[0] : "" });
+
+    // Retrieve stashed data from serviceConfig if available (Legacy fallback)
+    const stash = order.serviceConfig || {};
+
+    // Normalize data from potentially old schema fields or the stash
+    setForm({
+      ...emptyOrder,
+      ...order,
+      name: order.name || order.customerName || stash.name || "",
+      whatsapp_no: order.whatsapp_no || order.customerPhone || stash.whatsapp_no || "",
+      email: order.email || stash.email || "",
+      event_name: order.event_name || stash.event_name || "",
+      location: order.location || stash.location || "",
+      start_time: order.start_time || stash.start_time || "",
+      end_time: order.end_time || stash.end_time || "",
+      deliverables: order.deliverables || stash.deliverables || "",
+      notes: order.notes || stash.notes || "",
+
+      event_date: [order.event_date, order.date, stash.event_date].find(d => d)
+        ? new Date(order.event_date || order.date || stash.event_date).toISOString().split("T")[0] : "",
+
+      amount_paid: order.amount_paid ?? order.paidAmount ?? stash.amount_paid ?? "",
+      remaining_amount: order.remaining_amount ?? stash.remaining_amount ?? "",
+
+      order_status: order.order_status || order.status || stash.order_status || "Pending",
+      photography_type: order.photography_type || order.photographyType || stash.photography_type || "",
+      album_pages: order.album_pages || order.albumPages || stash.album_pages || "",
+      service: order.service || stash.service || (Array.isArray(order.services) ? order.services.join(", ") : ""),
+
+      delivery_date: (order.delivery_date || stash.delivery_date)
+        ? new Date(order.delivery_date || stash.delivery_date).toISOString().split("T")[0] : "",
+    });
     setShowForm(true);
   }
 
@@ -112,11 +142,51 @@ export default function AdminOrders() {
       // Sanitize payload: convert empty strings to null for specific types
       const payload = { ...form };
 
-      // FALLBACK: Map name to customerName because the server might be running a stale schema 
-      // that requires 'customerName'. This ensures it works on both new and old schemas.
+      // BACKWARD COMPATIBILITY: Map new fields to legacy fields so the server accepts them 
       if (payload.name) payload.customerName = payload.name;
+      if (payload.whatsapp_no) payload.customerPhone = payload.whatsapp_no;
+      if (payload.event_date) payload.date = payload.event_date;
 
-      ['amount', 'amount_paid', 'remaining_amount', 'event_date', 'delivery_date'].forEach(field => {
+      // Status Mapping
+      const legacyStatusMap = {
+        "In Progress": "Pending",
+        "Delivered": "Completed"
+      };
+      if (payload.order_status) {
+        payload.status = legacyStatusMap[payload.order_status] || payload.order_status;
+      }
+      if (payload.amount_paid) payload.paidAmount = payload.amount_paid;
+
+      // CRITICAL: Pack all new fields into 'serviceConfig' (Mixed type in old schema)
+      // This ensures they are saved to the DB even if the server schema is stale and strips top-level fields.
+      payload.serviceConfig = {
+        email: form.email,
+        event_name: form.event_name,
+        photography_type: form.photography_type,
+        location: form.location,
+        start_time: form.start_time,
+        end_time: form.end_time,
+        service: form.service,
+        album_pages: form.album_pages,
+        amount_paid: form.amount_paid,
+        remaining_amount: form.remaining_amount,
+        notes: form.notes,
+        deliverables: form.deliverables,
+        delivery_date: form.delivery_date,
+        // Also stash core fields just in case
+        name: form.name,
+        whatsapp_no: form.whatsapp_no,
+        order_status: form.order_status,
+        event_date: form.event_date
+      };
+
+      if (payload.photography_type) payload.photographyType = payload.photography_type;
+      if (payload.album_pages) payload.albumPages = payload.album_pages;
+
+      // New schema uses 'service' string, old used 'services' array
+      if (payload.service) payload.services = payload.service.split(',').map(s => s.trim());
+
+      ['amount', 'amount_paid', 'remaining_amount', 'event_date', 'delivery_date', 'date', 'paidAmount'].forEach(field => {
         if (payload[field] === "") payload[field] = null;
       });
 
