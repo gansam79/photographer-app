@@ -6,7 +6,7 @@ import { Plus, Pencil, Trash2, Image as ImageIcon } from "lucide-react";
 export default function AdminSlider() {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ id: null, title: "", image: "", status: "Active", order: 0 });
+  const [form, setForm] = useState({ id: null, title: "", subtitle: "", image: "", status: "Active", order: 0 });
   const [deleteId, setDeleteId] = useState(null);
 
   const { data: sliders = [], isLoading } = useQuery({
@@ -35,7 +35,7 @@ export default function AdminSlider() {
       queryClient.invalidateQueries({ queryKey: ["slider"] });
       toast.success(form.id ? "Slider updated" : "Slider created");
       setModalOpen(false);
-      setForm({ id: null, title: "", image: "", status: "Active", order: 0 });
+      setForm({ id: null, title: "", subtitle: "", image: "", status: "Active", order: 0 });
     },
     onError: (err) => toast.error(err.message),
   });
@@ -69,7 +69,7 @@ export default function AdminSlider() {
           <h1 className="text-2xl font-bold text-gray-900">Slider Management</h1>
         </div>
         <button
-          onClick={() => { setForm({ id: null, title: "", image: "", status: "Active", order: 0 }); setModalOpen(true); }}
+          onClick={() => { setForm({ id: null, title: "", subtitle: "", image: "", status: "Active", order: 0 }); setModalOpen(true); }}
           className="bg-gray-900 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-lg shadow-gray-200"
         >
           <Plus size={18} /> Add Slide
@@ -114,7 +114,7 @@ export default function AdminSlider() {
                   <td className="p-4 text-right">
                     <div className="inline-flex gap-2">
                       <button
-                        onClick={() => { setForm({ id: slider._id, title: slider.title, image: slider.image, status: slider.status, order: slider.order }); setModalOpen(true); }}
+                        onClick={() => { setForm({ id: slider._id, title: slider.title, subtitle: slider.subtitle || "", image: slider.image, status: slider.status, order: slider.order }); setModalOpen(true); }}
                         className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       >
                         <Pencil size={18} />
@@ -151,6 +151,16 @@ export default function AdminSlider() {
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow"
                   placeholder="Enter slide title"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Subtitle</label>
+                <input
+                  type="text"
+                  value={form.subtitle}
+                  onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-shadow"
+                  placeholder="Enter slide subtitle"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">

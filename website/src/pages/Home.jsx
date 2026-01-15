@@ -10,23 +10,23 @@ import 'swiper/css/navigation';
 
 const Home = () => {
   console.log('Home component rendering');
-  const slides = [
-    {
-      image: '/assets/img/slider/hero6.jpg',
-      title: 'Where Dreams Meet Reality',
-      subtitle: 'Capturing your most precious moments with elegance and grace.'
-    },
-    {
-      image: '/assets/img/slider/4.jpg',
-      title: 'Timeless Moments Captured',
-      subtitle: 'Preserving the beauty of your special day forever.'
-    },
-    {
-      image: '/assets/img/slider/11.jpg',
-      title: 'Elegant Photography & Films',
-      subtitle: 'Transforming your love story into cinematic memories.'
-    }
-  ];
+  const [slides, setSlides] = useState([]);
+
+  useEffect(() => {
+    fetch('http://localhost:8080/api/slider')
+      .then(res => res.json())
+      .then(data => {
+        const activeSlides = data.filter(s => s.status === 'Active');
+        if (activeSlides.length > 0) {
+          setSlides(activeSlides.map(s => ({
+            image: s.image, // Base64 or URL
+            title: s.title,
+            subtitle: s.subtitle || 'Capturing moments...' // Fallback
+          })));
+        }
+      })
+      .catch(err => console.error("Error fetching slider:", err));
+  }, []);
   const storyData = {
     "komal-kunal": {
       title: "Aanya & Rohit",
@@ -61,7 +61,7 @@ const Home = () => {
     try {
       // Set body class
       document.body.className = 'index-page';
-      
+
       // Hide preloader after component mounts
       const preloader = document.getElementById('preloader');
       if (preloader) {
@@ -71,7 +71,7 @@ const Home = () => {
           }
         }, 500);
       }
-      
+
       // Initialize AOS if available
       if (typeof window !== 'undefined' && window.AOS) {
         window.AOS.init({
@@ -80,7 +80,7 @@ const Home = () => {
           once: true,
           mirror: false
         });
-        
+
         // Refresh AOS after a short delay to ensure all elements are rendered
         aosTimeout = setTimeout(() => {
           if (window.AOS) {
@@ -88,7 +88,7 @@ const Home = () => {
           }
         }, 100);
       }
-      
+
       // Fetch Instagram posts
       const fetchInstagramPosts = async () => {
         const accessToken = process.env.REACT_APP_INSTAGRAM_ACCESS_TOKEN || 'YOUR_INSTAGRAM_ACCESS_TOKEN';
@@ -108,7 +108,7 @@ const Home = () => {
         }
       };
       fetchInstagramPosts();
-      
+
       // Initialize other vendor libraries
       if (typeof window !== 'undefined') {
         // Initialize GLightbox
@@ -121,7 +121,7 @@ const Home = () => {
     } catch (error) {
       console.error('Error in Home useEffect:', error);
     }
-    
+
     return () => {
       if (preloaderTimeout) clearTimeout(preloaderTimeout);
       if (aosTimeout) clearTimeout(aosTimeout);
@@ -132,15 +132,17 @@ const Home = () => {
   return (
     <>
       <Header />
-      
+
       <main className="main">
         {/* Hero Section */}
         <section id="hero" className="hero dark-background">
           <Swiper
+            key={slides.length}
             modules={[Autoplay, Navigation]}
             autoplay={{ delay: 5000, disableOnInteraction: true }}
-            loop={true}
-            navigation={true}
+            loop={slides.length > 1}
+            navigation={slides.length > 1}
+            allowTouchMove={slides.length > 1}
             className="hero-slider"
           >
             {slides.map((slide, index) => (
@@ -171,7 +173,7 @@ const Home = () => {
         <section id="about" className="about section">
           <div className="container" data-aos="fade-up" data-aos-delay="100">
             <div className="row align-items-center">
-              
+
               <div className="col-lg-6 order-2 order-lg-1" data-aos="fade-right" data-aos-delay="200">
                 <div className="content section-title">
                   <h2 className="section-heading mb-4 text-center section-title" data-aos="fade-up">
@@ -180,19 +182,19 @@ const Home = () => {
 
                   <p className="description-text my-3 text-left">
                     Welcome to <span>The Patil Photography & Film's,</span> where every love story is transformed
-                    into an elegant visual masterpiece. We believe that every couple shares a unique bond, and our 
+                    into an elegant visual masterpiece. We believe that every couple shares a unique bond, and our
                     passion lies in capturing the emotions, details, and unspoken moments that define your journey.
                   </p>
 
                   <p className="description-text mb-3 text-left">
-                    With a refined blend of creativity and authenticity, we preserve heartfelt smiles, gentle glances, 
-                    and the timeless charm that unfolds throughout your special day. From grand celebrations to intimate 
+                    With a refined blend of creativity and authenticity, we preserve heartfelt smiles, gentle glances,
+                    and the timeless charm that unfolds throughout your special day. From grand celebrations to intimate
                     memories, our craft is dedicated to telling stories that reflect your love, connection, and personality.
                   </p>
 
                   <p className="description-text mb-3 text-left">
-                    Explore our curated gallery — a world of emotions, artistry, and real moments captured with soul 
-                    and sincerity. Let us narrate your story through our lens, where every frame becomes a cherished 
+                    Explore our curated gallery — a world of emotions, artistry, and real moments captured with soul
+                    and sincerity. Let us narrate your story through our lens, where every frame becomes a cherished
                     memory, preserved forever with elegance.
                   </p>
 
@@ -225,7 +227,7 @@ const Home = () => {
 
           <div className="container">
             <div className="testimonial-masonry">
-              
+
               <div className="testimonial-item" data-aos="fade-up">
                 <div className="testimonial-content">
                   <div className="quote-pattern">
@@ -310,7 +312,7 @@ const Home = () => {
             <h2>Our Latest Love Stories</h2>
             <div className="d-flex justify-content-center">
               <p className="w-50 d-block text-center">
-                Every couple carries a beautiful story of their own, and it's our privilege to capture those 
+                Every couple carries a beautiful story of their own, and it's our privilege to capture those
                 timeless moments meant to be cherished for generations.
               </p>
             </div>
@@ -318,7 +320,7 @@ const Home = () => {
 
           <div className="container" data-aos="fade-up" data-aos-delay="100">
             <div className="row gy-4">
-              
+
               {/* Project Cards */}
               <div className="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
                 <div className="project-card">
@@ -328,7 +330,7 @@ const Home = () => {
                   <div className="project-info">
                     <h4 className="project-title">Aanya & Rohit</h4>
                     <p className="project-description">
-                      Aanya and Rohit's journey began in Mumbai, where an unexpected meeting grew into a deep, 
+                      Aanya and Rohit's journey began in Mumbai, where an unexpected meeting grew into a deep,
                       effortless connection Their contrasting personalities.....
                     </p>
                     <div className="cta-section text-md-start" data-aos="fade-up" data-aos-delay="150">
@@ -349,10 +351,10 @@ const Home = () => {
                   <div className="project-info">
                     <h4 className="project-title">Riya & Kunal</h4>
                     <p className="project-description">
-                      Riya and Kunal's love story began with a simple conversation that felt unexpectedly special. 
+                      Riya and Kunal's love story began with a simple conversation that felt unexpectedly special.
                       What started as friendship soon blossomed into a deep....
                     </p>
-                  <div className="cta-section text-md-start" data-aos="fade-up" data-aos-delay="150">
+                    <div className="cta-section text-md-start" data-aos="fade-up" data-aos-delay="150">
                       <a href="#" className="cta-link" onClick={(e) => { e.preventDefault(); setSelectedStory('komal-kunal'); setShowModal(true); }}>
                         View Story
                         <i className="bi bi-arrow-right ms-2"></i>
@@ -370,10 +372,10 @@ const Home = () => {
                   <div className="project-info">
                     <h4 className="project-title">Aarav & Meera</h4>
                     <p className="project-description">
-                      Aarav and Meera's story began with a connection that felt instantly comforting. Their shared values, 
+                      Aarav and Meera's story began with a connection that felt instantly comforting. Their shared values,
                       effortless conversations, and genuine care brought....
                     </p>
-                     <div className="cta-section text-md-start" data-aos="fade-up" data-aos-delay="150">
+                    <div className="cta-section text-md-start" data-aos="fade-up" data-aos-delay="150">
                       <a href="#" className="cta-link" onClick={(e) => { e.preventDefault(); setSelectedStory('komal-kunal'); setShowModal(true); }}>
                         View Story
                         <i className="bi bi-arrow-right ms-2"></i>
@@ -413,7 +415,7 @@ const Home = () => {
                     <p className="project-description">
                       A friendship that turned into love, built on trust and understanding...
                     </p>
-             <div className="cta-section text-md-start" data-aos="fade-up" data-aos-delay="100">
+                    <div className="cta-section text-md-start" data-aos="fade-up" data-aos-delay="100">
                       <a href="#" className="cta-link" onClick={(e) => { e.preventDefault(); setSelectedStory('komal-kunal'); setShowModal(true); }}>
                         View Story
                         <i className="bi bi-arrow-right ms-2"></i>
@@ -433,7 +435,7 @@ const Home = () => {
                     <p className="project-description">
                       Meant to be together, their journey is filled with warmth and beautiful memories...
                     </p>
-             <div className="cta-section text-md-start" data-aos="fade-up" data-aos-delay="150">
+                    <div className="cta-section text-md-start" data-aos="fade-up" data-aos-delay="150">
                       <a href="#" className="cta-link" onClick={(e) => { e.preventDefault(); setSelectedStory('komal-kunal'); setShowModal(true); }}>
                         View Story
                         <i className="bi bi-arrow-right ms-2"></i>
@@ -444,7 +446,7 @@ const Home = () => {
               </div>
 
             </div>
-            
+
             <div className="d-flex justify-content-center">
               <Link to="/projects" className="submit-btn">
                 <span>View All Stories</span>
