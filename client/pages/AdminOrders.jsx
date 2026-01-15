@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import jsPDF from "jspdf";
+import { Eye, FileText, Edit, Trash2, Download } from "lucide-react";
 
 const emptyOrder = {
   name: "",
@@ -29,6 +31,8 @@ export default function AdminOrders() {
   const [form, setForm] = useState(emptyOrder);
   const [showDelete, setShowDelete] = useState(false);
   const [toDeleteOrder, setToDeleteOrder] = useState(null);
+  const [showView, setShowView] = useState(false);
+  const [viewOrder, setViewOrder] = useState(null);
 
   useEffect(() => {
     fetchOrders();
@@ -230,6 +234,104 @@ export default function AdminOrders() {
   }
 
   // ... inside AdminOrders component ...
+
+  function openView(order) {
+    setViewOrder(order);
+    setShowView(true);
+  }
+
+  function downloadReceipt(order) {
+    const doc = new jsPDF();
+
+    // Helper to add text
+    const addText = (text, x, y, size = 12, font = "helvetica", style = "normal") => {
+      doc.setFont(font, style);
+      doc.setFontSize(size);
+      doc.text(text, x, y);
+    };
+
+    // Header
+    doc.setFillColor(218, 165, 32); // Gold color approximation
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+
+    // Correct way to center text in jsPDF
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.text("PAYMENT RECEIPT", 105, 25, { align: "center" });
+
+    // Reset
+    doc.setTextColor(0, 0, 0);
+
+    // Reset
+    doc.setTextColor(0, 0, 0);
+
+    const total = parseFloat(order.amount) || 0;
+    const paid = parseFloat(order.amount_paid) || parseFloat(order.paidAmount) || 0;
+    const remaining = total - paid;
+    const dateStr = new Date().toLocaleDateString();
+
+    let y = 60;
+
+    // Order Info Box
+    doc.setFontSize(10);
+    doc.text(`Receipt Date: ${dateStr}`, 150, 50);
+    doc.text(`Order ID: #${order._id.slice(-6).toUpperCase()}`, 150, 55);
+
+    doc.setFontSize(14);
+    doc.text(`Client: ${order.name || order.customerName}`, 20, y);
+    y += 10;
+    doc.setFontSize(12);
+    doc.text(`Event: ${order.event_name}`, 20, y);
+    y += 10;
+    const eventDate = order.event_date || order.date ? new Date(order.event_date || order.date).toLocaleDateString() : "N/A";
+    doc.text(`Event Date: ${eventDate}`, 20, y);
+    y += 10;
+    doc.text(`Service: ${order.photography_type || order.photographyType || order.service || "-"}`, 20, y);
+
+    y += 20;
+
+    // Financial Table Look
+    doc.setDrawColor(200);
+    doc.line(20, y, 190, y); // Top line
+    y += 10;
+    doc.setFont("helvetica", "bold");
+    doc.text("Description", 25, y);
+    doc.text("Amount", 160, y, { align: "right" });
+    y += 5;
+    doc.line(20, y, 190, y); // Header bottom line
+
+    y += 15;
+    doc.setFont("helvetica", "normal");
+    doc.text("Total Project Value", 25, y);
+    doc.text(`Rs. ${total.toLocaleString()}`, 160, y, { align: "right" });
+
+    y += 10;
+    doc.text("Amount Received", 25, y);
+    doc.text(`Rs. ${paid.toLocaleString()}`, 160, y, { align: "right" });
+
+    y += 5;
+    doc.line(20, y, 190, y); // Bottom line
+
+    y += 15;
+    doc.setFont("helvetica", "bold");
+    if (remaining > 0) {
+      doc.text("Balance Due", 25, y);
+      doc.text(`Rs. ${remaining.toLocaleString()}`, 160, y, { align: "right" });
+    } else {
+      doc.setTextColor(0, 150, 0);
+      doc.text("Fully Paid", 25, y);
+      doc.text("Rs. 0", 160, y, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text("Thank you for choosing us to capture your memories!", 105, 270, { align: "center" });
+
+    doc.save(`Receipt_${(order.name || "Order").replace(/\s+/g, '_')}_${dateStr}.pdf`);
+  }
   const [photographyTypes, setPhotographyTypes] = useState(() => {
     const saved = localStorage.getItem("photographyTypes");
     return saved ? JSON.parse(saved) : ["Wedding", "Pre-Wedding", "Baby Shower", "Birthday", "Corporate"];
@@ -325,11 +427,8 @@ export default function AdminOrders() {
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Client</th>
-                <th className="px-4 py-3 text-left font-semibold">WhatsApp</th>
                 <th className="px-4 py-3 text-left font-semibold">Event</th>
-                <th className="px-4 py-3 text-left font-semibold">Type</th>
                 <th className="px-4 py-3 text-left font-semibold">Date</th>
-                <th className="px-4 py-3 text-left font-semibold">Location</th>
                 <th className="px-4 py-3 text-left font-semibold">Amount</th>
                 <th className="px-4 py-3 text-left font-semibold">Remaining</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
@@ -358,16 +457,13 @@ export default function AdminOrders() {
                   return (
                     <tr key={order._id} className="odd:bg-white even:bg-slate-50">
                       <td className="px-4 py-3 font-semibold text-charcoal-900">{order.name || order.customerName}</td>
-                      <td className="px-4 py-3 text-slate-600">{order.whatsapp_no || order.customerPhone || "-"}</td>
                       <td className="px-4 py-3">{order.event_name || "-"}</td>
-                      <td className="px-4 py-3">{order.photography_type || order.photographyType || order.service || "-"}</td>
                       <td className="px-4 py-3 text-slate-500">
                         {order.event_date
                           ? new Date(order.event_date).toLocaleDateString()
                           : order.date ? new Date(order.date).toLocaleDateString() : "--"
                         }
                       </td>
-                      <td className="px-4 py-3">{order.location || "-"}</td>
                       <td className="px-4 py-3 font-medium text-charcoal-900">
                         {order.amount?.toLocaleString ? `₹${order.amount.toLocaleString()}` : order.amount}
                       </td>
@@ -380,18 +476,34 @@ export default function AdminOrders() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="inline-flex gap-2">
+                        <div className="inline-flex gap-2 justify-end">
                           <button
-                            className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                            onClick={() => openEdit(order)}
+                            className="p-1 rounded-md text-slate-500 hover:bg-slate-100 hover:text-gold-500"
+                            onClick={() => openView(order)}
+                            title="View Details"
                           >
-                            Edit
+                            <Eye size={18} />
                           </button>
                           <button
-                            className="rounded-md border border-rose-100 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                            onClick={() => confirmDelete(order)}
+                            className="p-1 rounded-md text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+                            onClick={() => downloadReceipt(order)}
+                            title="Download Receipt"
                           >
-                            Delete
+                            <Download size={18} />
+                          </button>
+                          <button
+                            className="p-1 rounded-md text-slate-500 hover:bg-slate-100 hover:text-green-600"
+                            onClick={() => openEdit(order)}
+                            title="Edit"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button
+                            className="p-1 rounded-md text-slate-500 hover:bg-slate-100 hover:text-rose-600"
+                            onClick={() => confirmDelete(order)}
+                            title="Delete"
+                          >
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </td>
@@ -743,6 +855,132 @@ export default function AdminOrders() {
           </div>
         </div>
       )}
+      {/* View Order Modal */}
+      {showView && viewOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">
+              <h3 className="text-xl font-semibold text-charcoal-900">Order Details</h3>
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 transition-colors"
+                onClick={() => setShowView(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+              {/* Event Info */}
+              <div>
+                <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-3">Event Information</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="block text-slate-500 text-xs">Client Name</span>
+                    <span className="font-medium text-slate-900">{viewOrder.name || viewOrder.customerName}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Event Name</span>
+                    <span className="font-medium text-slate-900">{viewOrder.event_name}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Date</span>
+                    <span className="font-medium text-slate-900">
+                      {viewOrder.event_date || viewOrder.date ? new Date(viewOrder.event_date || viewOrder.date).toLocaleDateString() : "-"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Time</span>
+                    <span className="font-medium text-slate-900">
+                      {viewOrder.start_time || "--"} - {viewOrder.end_time || "--"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Location</span>
+                    <span className="font-medium text-slate-900">{viewOrder.location || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Photography Type</span>
+                    <span className="font-medium text-slate-900">{viewOrder.photography_type || viewOrder.photographyType || "-"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact & Service */}
+              <div className="border-t border-slate-100 pt-4">
+                <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-3">Contact & Services</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="block text-slate-500 text-xs">WhatsApp</span>
+                    <span className="font-medium text-slate-900">{viewOrder.whatsapp_no || viewOrder.customerPhone || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Email</span>
+                    <span className="font-medium text-slate-900">{viewOrder.email || "-"}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="block text-slate-500 text-xs">Services Included</span>
+                    <span className="font-medium text-slate-900">{viewOrder.service || (Array.isArray(viewOrder.services) ? viewOrder.services.join(", ") : "-")}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Album Pages</span>
+                    <span className="font-medium text-slate-900">{viewOrder.album_pages || viewOrder.albumPages || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Deliverables</span>
+                    <span className="font-medium text-slate-900">{viewOrder.deliverables || "-"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Financials */}
+              <div className="border-t border-slate-100 pt-4">
+                <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-3">Financials</h4>
+                <div className="grid grid-cols-3 gap-4 text-sm bg-slate-50 p-4 rounded-lg">
+                  <div>
+                    <span className="block text-slate-500 text-xs">Total Amount</span>
+                    <span className="font-bold text-slate-900">₹{parseFloat(viewOrder.amount || 0).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Paid</span>
+                    <span className="font-bold text-emerald-600">₹{(parseFloat(viewOrder.amount_paid) || parseFloat(viewOrder.paidAmount) || 0).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-xs">Remaining</span>
+                    <span className={`font-bold ${(parseFloat(viewOrder.amount || 0) - (parseFloat(viewOrder.amount_paid) || parseFloat(viewOrder.paidAmount) || 0)) > 0 ? "text-rose-600" : "text-slate-400"}`}>
+                      ₹{(parseFloat(viewOrder.amount || 0) - (parseFloat(viewOrder.amount_paid) || parseFloat(viewOrder.paidAmount) || 0)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {viewOrder.notes && (
+                <div className="border-t border-slate-100 pt-4">
+                  <h4 className="text-sm uppercase tracking-wider text-gold-500 font-semibold mb-2">Notes</h4>
+                  <p className="text-sm text-slate-700 bg-amber-50 p-3 rounded-md">{viewOrder.notes}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 px-6 py-4 bg-slate-50">
+              <button
+                className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-white text-slate-700 transition-colors"
+                onClick={() => downloadReceipt(viewOrder)}
+              >
+                <Download size={16} /> Download Receipt
+              </button>
+              <button
+                className="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-600 transition-colors"
+                onClick={() => openEdit(viewOrder)}
+              >
+                Edit Order
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </section>
   );
 }
