@@ -151,3 +151,7 @@
     @apply font-playfair text-2xl font-semibold text-charcoal-800 dark:text-charcoal-100;
   }
 }
+
+section header{
+  margin-bottom: 20px !important;
+}

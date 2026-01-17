@@ -36,7 +36,7 @@ const Header = () => {
       <div className="container-fluid container-xl position-relative d-flex align-items-center">
         
         <Link to="/" className="logo d-flex align-items-center me-auto">
-          <img src="/assets/img/logo.png" alt="" />
+          <img src="/assets/img/logo.PNG" alt="Logo" />
           {/* <h1 className="sitename d-none d-sm-block">The Patil Photography & Film's</h1> */}
         </Link>
 

@@ -168,7 +168,7 @@ export default function AccessoriesManagement() {
   }
 
   return (
-    <section className="page-shell space-y-6">
+    <section className="page-shell mt-4">
       <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Gear Vault</p>
@@ -187,7 +187,7 @@ export default function AccessoriesManagement() {
         </button>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-4">
         <Stat label="Pieces in vault" value={stats.total} hint="Total units" accent="from-amber-50" />
         <Stat label="On hold" value={stats.reserved} hint="Reserved across kits" accent="from-blue-50" />
         <Stat label="Low stock" value={stats.lowStock} hint="At or under 1 spare" accent="from-rose-50" />

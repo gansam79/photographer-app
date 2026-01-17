@@ -427,7 +427,7 @@ export default function AdminOrders() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="mt-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         {/* ... (keep existing header content) ... */}
         <div>
@@ -448,7 +448,7 @@ export default function AdminOrders() {
       </header>
 
       {/* ... (keep existing summary cards and table) ... */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-4 mb-4">
         <SummaryCard label="Total" value={stats.total} accent="from-amber-100 to-white" />
         <SummaryCard label="In Progress" value={stats.inProgress} accent="from-blue-100 to-white" />
         <SummaryCard label="Pending" value={stats.pending} accent="from-orange-100 to-white" />

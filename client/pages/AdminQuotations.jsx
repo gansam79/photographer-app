@@ -151,8 +151,8 @@ export default function AdminQuotations() {
   }
 
   return (
-    <section className="page-shell space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+    <section className="page-shell">
+      <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between mb-8">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Pitching</p>
           <h1 className="text-3xl font-semibold text-charcoal-900 dark:text-white">Quotation Studio</h1>
@@ -170,7 +170,7 @@ export default function AdminQuotations() {
         </button>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-4 mb-4">
         <Metric label="Sent this month" value={`${stats.sent}`} sub="Client decks" accent="from-amber-50" />
         <Metric label="Acceptance rate" value={`${stats.acceptanceRate}%`} sub="Win ratio" accent="from-emerald-50" />
         <Metric label="Pending approvals" value={`${stats.pending}`} sub="Need nudges" accent="from-rose-50" />

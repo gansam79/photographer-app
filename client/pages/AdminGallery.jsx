@@ -62,9 +62,9 @@ export default function AdminGallery() {
   };
 
   return (
-    <div className="space-y-6 container mx-auto p-4">
+    <div className="container mx-auto p-4">
       {/* Header */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-8">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gold-500 font-semibold mb-1">Portfolio</p>
           <h1 className="text-2xl font-bold text-gray-900">Gallery</h1>

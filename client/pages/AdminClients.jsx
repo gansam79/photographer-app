@@ -175,7 +175,7 @@ export default function AdminClients() {
   };
 
   return (
-    <section className="space-y-6">
+    <section className="mt-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gold-500">Clients</p>
@@ -194,7 +194,7 @@ export default function AdminClients() {
         </button>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-4 mb-4">
         <Stat label="Total" value={stats.total} accent="from-amber-100 to-white" />
         <Stat label="Active" value={stats.active} accent="from-emerald-100 to-white" />
         <Stat label="Leads" value={stats.leads} accent="from-blue-100 to-white" />
