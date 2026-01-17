@@ -44,18 +44,20 @@ export default function AdminRegister() {
 
   return (
     <section className="page-shell space-y-6">
-      <header className="rounded-3xl bg-gradient-to-br from-charcoal-900 via-charcoal-800 to-charcoal-900 p-6 text-white">
-        <p className="text-xs uppercase tracking-[0.35em] text-white/60">Onboard</p>
-        <h1 className="mt-2 text-3xl font-semibold">Invite a Core Admin</h1>
-        <p className="mt-2 text-sm text-white/70">
+      <header className="rounded-4xl border border-[#e6eaf2] bg-gradient-to-br from-white via-[#fdfefe] to-[#f5f7fb] p-6 text-charcoal-900 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
+        <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Onboard</p>
+        <h1 className="mt-2 text-3xl font-semibold text-charcoal-900">Invite a Core Admin</h1>
+        <p className="mt-2 text-sm text-slate-600">
           Add producers, post managers, finance partners, or co-founders with tailored permissions.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           {roles.map((role) => (
             <button
               key={role.value}
-              className={`rounded-full border px-4 py-2 text-sm transition ${
-                profile.role === role.value ? "border-white bg-white/10 text-white" : "border-white/30 text-white/70"
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                profile.role === role.value
+                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                  : "border-slate-200 text-slate-600 hover:border-slate-300"
               }`}
               onClick={() => setProfile((prev) => ({ ...prev, role: role.value }))}
               type="button"

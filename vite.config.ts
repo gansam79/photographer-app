@@ -10,18 +10,31 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     fs: {
-      allow: ["./client", "./shared"],
-      deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "server/**"],
+      allow: [
+        path.resolve(__dirname, "./client"),
+        path.resolve(__dirname, "./shared"),
+        path.resolve(__dirname, "./website"),
+        path.resolve(__dirname, "./node_modules"),
+      ],
+      deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "server/**", "website/node_modules_backup/**"],
     },
   },
   build: {
     outDir: "dist/spa",
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        admin: path.resolve(__dirname, "admin/index.html"),
+      },
+    },
   },
   plugins: [react(), expressPlugin()],
   resolve: {
+    dedupe: ["react", "react-dom"],
     alias: {
       "@": path.resolve(__dirname, "./client"),
       "@shared": path.resolve(__dirname, "./shared"),
+      "@website": path.resolve(__dirname, "./website"),
     },
   },
 }));
@@ -31,6 +44,15 @@ function expressPlugin(): Plugin {
     name: "express-plugin",
     apply: "serve", // Only apply during development (serve mode)
     configureServer(server) {
+      // SPA Fallback for /admin
+      server.middlewares.use((req, res, next) => {
+        const url = req.url || "";
+        if (url.startsWith("/admin") && !url.startsWith("/api") && !url.includes(".")) {
+          req.url = "/admin/index.html";
+        }
+        next();
+      });
+
       const app = createServer();
 
       // Add Express app as middleware to Vite dev server

@@ -130,4 +130,4 @@ invoiceSchema.index({ clientId: 1 });
 invoiceSchema.index({ paymentStatus: 1 });
 invoiceSchema.index({ dueDate: 1 });
 
-export default mongoose.model('Invoice', invoiceSchema);
+export default mongoose.models.Invoice || mongoose.model('Invoice', invoiceSchema);

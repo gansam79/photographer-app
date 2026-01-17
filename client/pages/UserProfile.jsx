@@ -69,10 +69,10 @@ export default function UserProfile() {
 
   return (
     <section className="page-shell space-y-6">
-      <header className="rounded-3xl bg-gradient-to-br from-charcoal-900 via-charcoal-800 to-charcoal-900 p-6 text-white">
+      <header className="rounded-4xl border border-[#e6eaf2] bg-gradient-to-br from-white via-[#fdfefe] to-[#f5f7fb] p-6 text-charcoal-900 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
         <div className="flex flex-wrap items-center gap-6">
-          <div className="h-20 w-20 rounded-2xl bg-white/10 p-1">
-            <div className="flex h-full items-center justify-center rounded-2xl bg-white/20 text-3xl font-semibold">
+          <div className="h-20 w-20 rounded-2xl bg-amber-50 p-1">
+            <div className="flex h-full items-center justify-center rounded-2xl bg-white text-3xl font-semibold text-amber-700">
               {profile.name
                 .split(" ")
                 .map((part) => part[0])
@@ -80,20 +80,20 @@ export default function UserProfile() {
             </div>
           </div>
           <div className="flex-1 min-w-[200px]">
-            <p className="text-xs uppercase tracking-[0.35em] text-white/60">Profile</p>
-            <h1 className="text-3xl font-semibold">{profile.name}</h1>
-            <p className="text-sm text-white/70">
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Profile</p>
+            <h1 className="text-3xl font-semibold text-charcoal-900">{profile.name}</h1>
+            <p className="text-sm text-slate-600">
               {profile.role} • {profile.location}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/80">
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
               {profile.focus.map((item) => (
-                <span key={item} className="rounded-full bg-white/10 px-3 py-1">
+                <span key={item} className="rounded-full border border-slate-200 bg-white px-3 py-1">
                   {item}
                 </span>
               ))}
             </div>
           </div>
-          <div className="flex flex-wrap gap-3 text-sm text-white/80">
+          <div className="flex flex-wrap gap-3 text-sm text-slate-600">
             <InfoChip label="Email" value={profile.email} />
             <InfoChip label="WhatsApp" value={profile.phone} />
             <InfoChip label="Site" value={profile.socials.website} />
@@ -266,18 +266,18 @@ export default function UserProfile() {
 
 function Metric({ label, value }) {
   return (
-    <div>
-      <dt className="text-xs uppercase tracking-[0.35em] text-white/60">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold">{value}</dd>
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+      <dt className="text-xs uppercase tracking-[0.35em] text-slate-500">{label}</dt>
+      <dd className="mt-1 text-2xl font-semibold text-charcoal-900">{value}</dd>
     </div>
   );
 }
 
 function InfoChip({ label, value }) {
   return (
-    <div className="rounded-full bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.35em] text-white/70">
-      <span className="text-white/60">{label}: </span>
-      <span className="tracking-normal text-white">{value}</span>
+    <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs uppercase tracking-[0.35em] text-slate-500">
+      <span className="text-slate-500">{label}: </span>
+      <span className="tracking-normal text-charcoal-900">{value}</span>
     </div>
   );
 }
